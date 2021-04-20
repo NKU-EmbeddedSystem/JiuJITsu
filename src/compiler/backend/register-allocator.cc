@@ -5,6 +5,8 @@
 #include "src/compiler/backend/register-allocator.h"
 
 #include <iomanip>
+#include <stdlib.h>
+#include <time.h>
 
 #include "src/base/iterator.h"
 #include "src/base/small-vector.h"
@@ -3489,6 +3491,7 @@ bool LinearScanAllocator::HasNonDeferredPredecessor(InstructionBlock* block) {
 }
 
 void LinearScanAllocator::AllocateRegisters() {
+  srand((unsigned)time(NULL));
   DCHECK(unhandled_live_ranges().empty());
   DCHECK(active_live_ranges().empty());
   for (int reg = 0; reg < num_registers(); ++reg) {
@@ -4066,6 +4069,82 @@ bool LinearScanAllocator::TryAllocateFreeReg(
       current->FirstHintPosition(&hint_reg) != nullptr ||
       current->RegisterFromBundle(&hint_reg);
 
+  int num_regs = 0;  // used only for the call to GetFPRegisterSet.
+  int num_codes = num_allocatable_registers();
+  const int* codes = allocatable_register_codes();
+  MachineRepresentation rep = current->representation();
+  if (!kSimpleFPAliasing && (rep == MachineRepresentation::kFloat32 ||
+                             rep == MachineRepresentation::kSimd128)) {
+    GetFPRegisterSet(rep, &num_regs, &num_codes, &codes);
+  }
+
+  DCHECK_GE(free_until_pos.length(), num_codes);
+
+  int reg = (hint_reg == kUnassignedRegister) ? codes[0] : hint_reg;
+  int current_free = free_until_pos[reg].ToInstructionIndex();
+
+  int count=0;
+  int code_nums[16];
+  for (int i = 0; i < num_codes; ++i) {
+    int code = codes[i];
+    int candidate_free = free_until_pos[code].ToInstructionIndex();
+    TRACE("Register %s in free until %d\n", RegisterName(code), candidate_free);
+   // printf("Register %s in free until %d\n", RegisterName(code), candidate_free);
+    if ((candidate_free > current_free) ||
+        (candidate_free == current_free && reg != hint_reg &&
+         (data()->HasFixedUse(current->representation(), reg) &&
+          !data()->HasFixedUse(current->representation(), code)))) {
+      reg = code;
+      current_free = candidate_free;
+    }
+	if(free_until_pos[code] >= current->End() &&(hint_reg == kUnassignedRegister||free_until_pos[hint_reg].ToInstructionIndex() == 0) && !data()->HasFixedUse(current->representation(), code))
+	{
+		code_nums[count++]=i;
+	}
+  }
+  if(count>0)
+  {
+//	  srand((unsigned)time(NULL));
+	  reg=codes[code_nums[rand()%count]];
+  }
+
+  LifetimePosition pos = free_until_pos[reg];
+
+  if (pos <= current->Start()) {
+    // All registers are blocked.
+    return false;
+  }
+
+  if (pos < current->End()) {
+    // Register reg is available at the range start but becomes blocked before
+    // the range end. Split current at position where it becomes blocked.
+    LiveRange* tail = SplitRangeAt(current, pos);
+    AddToUnhandled(tail);
+
+    // Try to allocate preferred register once more.
+    if (TryAllocatePreferredReg(current, free_until_pos)) return true;
+  }
+
+  // Register reg is available at the range start and is free until the range
+  // end.
+  DCHECK(pos >= current->End());
+  TRACE("Assigning free reg %s to live range %d:%d\n", RegisterName(reg),
+        current->TopLevel()->vreg(), current->relative_id());
+  //printf("Assigning free reg %s to live range %d:%d\n", RegisterName(reg),
+        //current->TopLevel()->vreg(), current->relative_id());
+  SetLiveRangeAssignedRegister(current, reg);
+
+  return true;
+}
+/*
+bool LinearScanAllocator::TryAllocateFreeReg(
+    LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
+  // Compute register hint, if such exists.
+  int hint_reg = kUnassignedRegister;
+  current->RegisterFromControlFlow(&hint_reg) ||
+      current->FirstHintPosition(&hint_reg) != nullptr ||
+      current->RegisterFromBundle(&hint_reg);
+
   int reg =
       PickRegisterThatIsAvailableLongest(current, hint_reg, free_until_pos);
 
@@ -4095,7 +4174,7 @@ bool LinearScanAllocator::TryAllocateFreeReg(
 
   return true;
 }
-
+*/
 void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
                                              SpillMode spill_mode) {
   UsePosition* register_use = current->NextRegisterPosition(current->Start());

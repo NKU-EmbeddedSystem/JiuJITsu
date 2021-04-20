@@ -489,7 +489,7 @@ void Assembler::bind_to(Label* L, int pos) {
       auto& pos_vector = it->second;
       for (auto fixup_pos : pos_vector) {
         int disp = pos - (fixup_pos + sizeof(int8_t));
-        CHECK(is_int8(disp));
+		CHECK(is_int8(disp));
         set_byte_at(fixup_pos, disp);
       }
       label_farjmp_maps_.erase(it);
