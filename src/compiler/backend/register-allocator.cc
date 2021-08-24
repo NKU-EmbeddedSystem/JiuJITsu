@@ -4097,14 +4097,14 @@ bool LinearScanAllocator::TryAllocateFreeReg(
       reg = code;
       current_free = candidate_free;
     }
-	if(free_until_pos[code] >= current->End() &&(hint_reg == kUnassignedRegister||free_until_pos[hint_reg].ToInstructionIndex() == 0) && !data()->HasFixedUse(current->representation(), code))
+	if(free_until_pos[code] >= current->End() &&(hint_reg == kUnassignedRegister||free_until_pos[hint_reg].ToInstructionIndex() == 0))
 	{
 		code_nums[count++]=i;
 	}
   }
   if(count>0)
   {
-//	  srand((unsigned)time(NULL));
+	  // reg=codes[code_nums[rand()%count]];
 	  reg=codes[code_nums[rand()%count]];
   }
 

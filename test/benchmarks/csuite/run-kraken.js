@@ -45,7 +45,8 @@ for (var krakenCounter = 0; krakenCounter < tests.length; krakenCounter++) {
     // load test data
     load(testData);
     var startTime = new Date;
-    load(testName);
+    for(let i = 0; i < 100; i++)
+        load(testName);
     times[krakenCounter] = new Date() - startTime;
     gc();
 }
