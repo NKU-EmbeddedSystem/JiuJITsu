@@ -2061,6 +2061,10 @@ void LiveRangeBuilder::ProcessInstructions(const InstructionBlock* block,
     Instruction* instr = code()->InstructionAt(index);
     DCHECK_NOT_NULL(instr);
     DCHECK(curr_position.IsInstructionPosition());
+
+    // print instruction info
+    instr->Print();
+
     // Process output, inputs, and temps of this instruction.
     for (size_t i = 0; i < instr->OutputCount(); i++) {
       InstructionOperand* output = instr->OutputAt(i);
@@ -3978,6 +3982,7 @@ void LinearScanAllocator::FindFreeRegistersForRange(
 // which are expensive.
 void LinearScanAllocator::ProcessCurrentRange(LiveRange* current,
                                               SpillMode spill_mode) {
+  PrintLiveRangeInfo(current);
   EmbeddedVector<LifetimePosition, RegisterConfiguration::kMaxRegisters>
       free_until_pos;
   FindFreeRegistersForRange(current, free_until_pos);
@@ -4058,13 +4063,29 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
   return reg;
 }
 
+bool LinearScanAllocator::PrintLiveRangeInfo(LiveRange* current) {
+  // add instructions sequences
+  InstructionSequence *instructions = this->code();
+  LifetimePosition begin_position = current->Start();
+  while (true) {
+    int instr_index = begin_position.ToInstructionIndex();
+    Instruction *instr = instructions->InstructionAt(instr_index);
+    instr->Print();
+    if (begin_position.IsEnd())
+      break;
+    begin_position = current->NextUsePosition(begin_position)->pos();
+  }
+  return true;
+}
+
+
 bool LinearScanAllocator::TryAllocateFreeReg(
-    LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
+        LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
   // Compute register hint, if such exists.
   int hint_reg = kUnassignedRegister;
   current->RegisterFromControlFlow(&hint_reg) ||
-      current->FirstHintPosition(&hint_reg) != nullptr ||
-      current->RegisterFromBundle(&hint_reg);
+  current->FirstHintPosition(&hint_reg) != nullptr ||
+  current->RegisterFromBundle(&hint_reg);
 
   int reg =
       PickRegisterThatIsAvailableLongest(current, hint_reg, free_until_pos);

@@ -1476,6 +1476,8 @@ class LinearScanAllocator final : public RegisterAllocator {
   int PickRegisterThatIsAvailableLongest(
       LiveRange* current, int hint_reg,
       const Vector<LifetimePosition>& free_until_pos);
+
+  bool PrintLiveRangeInfo(LiveRange* current);
   bool TryAllocateFreeReg(LiveRange* range,
                           const Vector<LifetimePosition>& free_until_pos);
   bool TryAllocatePreferredReg(LiveRange* range,
