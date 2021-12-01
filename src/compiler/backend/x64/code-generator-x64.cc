@@ -90,7 +90,7 @@ class X64OperandConverter : public InstructionOperandConverter {
         int32_t disp = 0;
         return Operand(base, disp);
       }
-      case kMode_MRI: {
+      case kMode_MRI: { // 没有SIB的情况
         Register base = InputRegister(NextOffset(offset));
         int32_t disp = InputInt32(NextOffset(offset));
         return Operand(base, disp);
@@ -98,7 +98,7 @@ class X64OperandConverter : public InstructionOperandConverter {
       case kMode_MR1:
       case kMode_MR2:
       case kMode_MR4:
-      case kMode_MR8: {
+      case kMode_MR8: { // 有SIB
         Register base = InputRegister(NextOffset(offset));
         Register index = InputRegister(NextOffset(offset));
         ScaleFactor scale = ScaleFor(kMode_MR1, mode);
