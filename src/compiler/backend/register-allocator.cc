@@ -3495,7 +3495,10 @@ void LinearScanAllocator::AllocateRegisters() {
     DCHECK(inactive_live_ranges(reg).empty());
   }
 
+#ifdef MY_DEBUG
   code()->print_restricted_maps();
+#endif
+
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 

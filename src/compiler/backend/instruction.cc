@@ -39,8 +39,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     Register reg = Register::from_code(preg);
     uint8_t code = gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t >(0b101), static_cast<uint8_t>(reg.low_bits()));
     if (invalid_codes.count(code) > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-      DEBUG_PRINT("code = %x\n", code);
+      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      fprintf(stderr, "code = %x\n", code);
       return false;
     }
   }
@@ -49,13 +49,13 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   uint32_t index = Register::from_code(preg).low_bits();
   if (index == 2) {
     if (rev_restricted_maps[1][vreg].size() > 0 || restricted_maps[2][vreg].size() > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
   if (index == 3) {
     if (rev_restricted_maps[1][vreg].size() > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
@@ -68,8 +68,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       if (invalid_codes.count(code) > 0) {
-        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+        fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        fprintf(stderr, "v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -86,8 +86,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       index = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       if (invalid_codes.count(code) > 0) {
-        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+        fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        fprintf(stderr, "v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -97,21 +97,21 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 
 void InstructionSequence::print_restricted_maps(){
   for (int i = 0; i < 4; ++i) {
-    DEBUG_PRINT("mod %d\n", i);
+    fprintf(stderr, "mod %d\n", i);
     for (auto& pairs : restricted_maps[i]) {
-      DEBUG_PRINT("v%d", pairs.first);
-      DEBUG_PRINT(" ->");
+      fprintf(stderr, "v%d", pairs.first);
+      fprintf(stderr, " ->");
       for (auto& reg : pairs.second) {
-        DEBUG_PRINT("v%d ", reg);
+        fprintf(stderr, "v%d ", reg);
       }
-      DEBUG_PRINT("\n");
+      fprintf(stderr, "\n");
     }
   }
-  DEBUG_PRINT("op restricted\n");
+  fprintf(stderr, "op restricted\n");
   for (auto& reg : op_registers) {
-    DEBUG_PRINT("v%d ", reg);
+    fprintf(stderr, "v%d ", reg);
   }
-  DEBUG_PRINT("\n");
+  fprintf(stderr, "\n");
 }
 
 const RegisterConfiguration* (*GetRegConfig)() = RegisterConfiguration::Default;
