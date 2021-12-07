@@ -286,6 +286,7 @@ class V8_EXPORT_PRIVATE InstructionSelector final {
   };
   enum EnableTraceTurboJson { kDisableTraceTurboJson, kEnableTraceTurboJson };
 
+  static std::unordered_set<ArchOpcode> &sensitive_opcodes;
   InstructionSelector(
       Zone* zone, size_t node_count, Linkage* linkage,
       InstructionSequence* sequence, Schedule* schedule,

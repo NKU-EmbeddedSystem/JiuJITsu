@@ -1688,7 +1688,28 @@ class V8_EXPORT_PRIVATE InstructionSequence final
 
   void RecomputeAssemblyOrderForTesting();
 
- private:
+  // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>> restricted_maps[4];
+  // not allowed to be rsp, r12, rdi, r14, rsi, r15
+  std::unordered_set<uint32_t> op_registers;
+  // for quick search vreg to physical reg, 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
+
+  std::unordered_map<uint32_t, uint32_t> v2p_regs;
+  // malicous byte
+  static std::unordered_set<uint8_t>& invalid_codes;
+
+  // 用res约束reg
+  void add_scale1_registers(uint32_t reg, uint32_t res);
+  void add_scale2_registers(uint32_t reg, uint32_t res);
+  void add_scale4_registers(uint32_t reg, uint32_t res);
+  void add_scale8_registers(uint32_t reg, uint32_t res);
+  void add_83_register(uint32_t reg);
+
+  // 检查分配产生的modr/m或者sib是否合法
+  bool check_allocate(uint32_t vreg, uint32_t preg);
+  void print_restricted_maps();
+
+private:
   friend V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
                                                     const InstructionSequence&);
 
@@ -1713,9 +1734,9 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   ZoneVector<MachineRepresentation> representations_;
   int representation_mask_;
   DeoptimizationVector deoptimization_entries_;
-
   // Used at construction time
   InstructionBlock* current_block_;
+  uint8_t gen_sib(uint8_t scale, uint8_t index, uint8_t base);
 };
 
 V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,

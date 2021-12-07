@@ -24,6 +24,13 @@
 namespace v8 {
 namespace internal {
 namespace compiler {
+// movsd may be too complex because its syntax is not portable with other instructions
+std::unordered_set<ArchOpcode> &InstructionSelector::sensitive_opcodes = *new std::unordered_set<ArchOpcode>{
+    kX64Add, kX64Add32, kX64And, kX64And32,kX64Cmp, kX64Cmp32, kX64Cmp16, kX64Cmp8,
+    kX64Or, kX64Or32, kX64Sub, kX64Sub32, kX64Xor, kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
+    kX64Movb, kX64Movl, kX64Movq, kX64Movw,
+    kX64Lea, kX64Lea32};
+
 
 InstructionSelector::InstructionSelector(
     Zone* zone, size_t node_count, Linkage* linkage,
@@ -82,6 +89,31 @@ InstructionSelector::InstructionSelector(
   }
 }
 
+// 如果前一个操作数是固定寄存器怎么办呢，要不先不考虑固定的了
+bool get_virtual_reg(InstructionOperand* op, uint32_t& reg) {
+  if (!op->IsUnallocated())
+    return false;
+  UnallocatedOperand* un_op = UnallocatedOperand::cast(op);
+  // 如果有固定的寄存器分配策略应该也处理不了
+  if (un_op->HasFixedPolicy())
+    return false;
+  reg = un_op->virtual_register();
+  return true;
+}
+
+bool get_imm(InstructionOperand* op, int32_t& imm, InstructionSequence* sequence_) {
+  if (!op->IsImmediate())
+    return false;
+  ImmediateOperand* imm_op = ImmediateOperand::cast(op);
+  if (imm_op->type() == ImmediateOperand::INDEXED) {
+    imm = sequence_->immediates().at(imm_op->indexed_value()).ToInt32();
+
+  } else if(imm_op->type() == ImmediateOperand::ImmediateType::INLINE) {
+    imm = imm_op->inline_value();
+  }
+  return true;
+}
+
 bool InstructionSelector::SelectInstructions() {
   // Mark the inputs of all phis in loop headers as used.
   BasicBlockVector* blocks = schedule()->rpo_order();
@@ -98,6 +130,7 @@ bool InstructionSelector::SelectInstructions() {
     }
   }
 
+
   // Visit each basic block in post order.
   for (auto i = blocks->rbegin(); i != blocks->rend(); ++i) {
     VisitBlock(*i);
@@ -108,6 +141,203 @@ bool InstructionSelector::SelectInstructions() {
   if (UseInstructionScheduling()) {
     scheduler_ = zone()->New<InstructionScheduler>(zone(), sequence());
   }
+  // add map
+  auto add_sensitive_map = [&](Instruction* instr){
+    InstructionCode opcode = instr->opcode();
+    ArchOpcode arch_opcode = ArchOpcodeField::decode(opcode);
+    if (sensitive_opcodes.count(arch_opcode) > 0) {
+//      printf("instruction input count : %zu, output count : %zu\n", instr->InputCount(),
+//             instr->OutputCount());
+      instr->Print();
+
+      InstructionOperand *output = instr->OutputCount() ? instr->Output() : instr->InputAt(instr->InputCount() - 1);
+      InstructionOperand *input1 = instr->InputAt(0);
+      InstructionOperand *input2 = instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
+      ImmediateOperand *imm = nullptr;
+      int32_t displacement = 0;
+      uint32_t output_reg, virtual_reg;
+      uint32_t virtual_reg2;
+
+      AddressingMode mode = AddressingModeField::decode(instr->opcode());
+      switch (mode) {
+        case AddressingMode::kMode_MR:
+          break;
+        case kMode_None: // r1, r2
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (arch_opcode == kX64Sub) {
+            // 用输出约束输入
+            // map[input] = output
+            // 这种应该很少，mod很少
+            // sub rsp/r12
+            // sub rsi/r14
+            // sub rdi/r15
+            // get vreg
+            sequence_->add_83_register(virtual_reg);
+          }
+          break;
+        case kMode_MRI: // leal rax,[rbx - 0x3d]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          // TODO FIX When output_reg is fixed or output_reg has been allocated
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          if (!get_imm(input2, displacement, sequence_))
+            break;
+          // mod为disp的长度, reg和rm为output和input
+          // 判断一下disp的长度
+          // map[input1] = output
+          if (is_int8(displacement)) {
+            sequence_->add_scale2_registers(output_reg, virtual_reg);
+          } else if (is_int32(displacement)) {
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          } else {
+            // this maybe error
+            printf("error format displacement %d\n", displacement);
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          }
+          break;
+        case kMode_MR1: // leal rax,[rbx + rax]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale1_registers(virtual_reg, virtual_reg2);
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          sequence_->add_scale1_registers(output_reg, virtual_reg);
+          break;
+        case kMode_MR2: // leal rbx,[rax + rbx * 2]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale2_registers(virtual_reg, virtual_reg2);
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          sequence_->add_scale1_registers(output_reg, virtual_reg);
+          break;
+        case kMode_MR4: // leal rbx, [rax + rbx * 4]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale4_registers(virtual_reg, virtual_reg2);
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          sequence_->add_scale1_registers(output_reg, virtual_reg);
+          break;
+        case kMode_MR8: // leal rbx, [rax + rbx * 8]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale8_registers(virtual_reg, virtual_reg2);
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          sequence_->add_scale1_registers(output_reg, virtual_reg);
+          break;
+        case kMode_MR1I: // leal rbx, [rax + rbx - 0x3d]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale1_registers(virtual_reg, virtual_reg2);
+          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
+          if (!get_imm(imm, displacement, sequence_)) break;
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          if (is_int8(displacement)) {
+            sequence_->add_scale2_registers(output_reg, virtual_reg);
+          } else {
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          }
+          break;
+        case kMode_MR2I: // leal rbx, [rax + rbx * 2 - 0x3d]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale2_registers(virtual_reg, virtual_reg2);
+          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
+          if (!get_imm(imm, displacement, sequence_)) break;
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          if (is_int8(displacement)) {
+            sequence_->add_scale2_registers(output_reg, virtual_reg);
+          } else {
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          }
+          break;
+        case kMode_MR4I: // leal rbx, [rax + rbx * 4 - 0x3d]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale4_registers(virtual_reg, virtual_reg2);
+          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
+          if (!get_imm(imm, displacement, sequence_)) break;
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          if (is_int8(displacement)) {
+            sequence_->add_scale2_registers(output_reg, virtual_reg);
+          } else {
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          }
+          break;
+        case kMode_MR8I: // leal rbx, [rax + rbx * 8 - 0x3d]
+          if (!get_virtual_reg(input1, virtual_reg))
+            break;
+          if (!get_virtual_reg(input2, virtual_reg2))
+            break;
+          // map sib
+          sequence_->add_scale8_registers(virtual_reg, virtual_reg2);
+          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
+          if (!get_imm(imm, displacement, sequence_)) break;
+          // map modrm
+          if (!get_virtual_reg(output, output_reg))
+            break;
+          if (is_int8(displacement)) {
+            sequence_->add_scale2_registers(output_reg, virtual_reg);
+          } else {
+            sequence_->add_scale4_registers(output_reg, virtual_reg);
+          }
+          break;
+        case kMode_M1: // leal rbx, [rbp + rbx]
+          break;
+        case kMode_M2: // leal rbx,[rbp + rbx * 2]
+          break;
+        case kMode_M4: // leal rbx,[rbp + rbx * 4]
+          break;
+        case kMode_M8: // leal rbx,[rbp + rbx * 8]
+          break;
+        case kMode_M1I: // leal rbx,[rbp + rbx - 0x3d]
+          break;
+        case kMode_M2I: // leal rbx, [rbp + rbx * 2 - 0x3d]
+          break;
+        case kMode_M4I: // leal rbx,[rbp + rbx * 4 - 0x3d]
+          break;
+        case kMode_M8I: // leal rbx,[rbp + rbx * 8 - 0x3d]
+          break;
+        case kMode_Root:
+          break;
+      }
+    }
+  };
 
   for (auto const block : *blocks) {
     InstructionBlock* instruction_block =
@@ -119,11 +349,16 @@ bool InstructionSelector::SelectInstructions() {
     size_t start = instruction_block->code_start();
     DCHECK_LE(end, start);
     StartBlock(RpoNumber::FromInt(block->rpo_number()));
+
+
     if (end != start) {
       while (start-- > end + 1) {
         UpdateRenames(instructions_[start]);
+        add_sensitive_map(instructions_[start]);
         AddInstruction(instructions_[start]);
       }
+      // 最后一条指令也要加
+      add_sensitive_map(instructions_[end]);
       UpdateRenames(instructions_[end]);
       AddTerminator(instructions_[end]);
     }

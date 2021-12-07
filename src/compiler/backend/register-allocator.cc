@@ -3495,6 +3495,7 @@ void LinearScanAllocator::AllocateRegisters() {
     DCHECK(inactive_live_ranges(reg).empty());
   }
 
+  code()->print_restricted_maps();
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 
@@ -3749,6 +3750,8 @@ void LinearScanAllocator::AllocateRegisters() {
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
+  code()->v2p_regs[range->TopLevel()->vreg()] = reg;
+  printf("assign v%d to %s\n", range->TopLevel()->vreg(), RegisterName(reg));
   data()->MarkAllocated(range->representation(), reg);
   range->set_assigned_register(reg);
   range->SetUseHints(reg);
@@ -4008,8 +4011,12 @@ bool LinearScanAllocator::TryAllocatePreferredReg(
       TRACE("Assigning preferred reg %s to live range %d:%d\n",
             RegisterName(hint_register), current->TopLevel()->vreg(),
             current->relative_id());
-      SetLiveRangeAssignedRegister(current, hint_register);
-      return true;
+      if (code()->check_allocate(current->TopLevel()->vreg(), hint_register)) {
+        SetLiveRangeAssignedRegister(current, hint_register);
+        return true;
+      } else {
+        return false;
+      }
     }
   }
   return false;
@@ -4018,6 +4025,7 @@ bool LinearScanAllocator::TryAllocatePreferredReg(
 int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
     LiveRange* current, int hint_reg,
     const Vector<LifetimePosition>& free_until_pos) {
+  auto instructions = code();
   int num_regs = 0;  // used only for the call to GetFPRegisterSet.
   int num_codes = num_allocatable_registers();
   const int* codes = allocatable_register_codes();
@@ -4050,8 +4058,10 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
         (candidate_free == current_free && reg != hint_reg &&
          (data()->HasFixedUse(current->representation(), reg) &&
           !data()->HasFixedUse(current->representation(), code)))) {
-      reg = code;
-      current_free = candidate_free;
+      if (instructions->check_allocate(current->TopLevel()->vreg(), code)) {
+        reg = code;
+        current_free = candidate_free;
+      }
     }
   }
 
@@ -4062,6 +4072,7 @@ bool LinearScanAllocator::TryAllocateFreeReg(
     LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
   // Compute register hint, if such exists.
   int hint_reg = kUnassignedRegister;
+
   current->RegisterFromControlFlow(&hint_reg) ||
       current->FirstHintPosition(&hint_reg) != nullptr ||
       current->RegisterFromBundle(&hint_reg);
