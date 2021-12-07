@@ -148,7 +148,7 @@ bool InstructionSelector::SelectInstructions() {
     if (sensitive_opcodes.count(arch_opcode) > 0) {
       if (instr->InputCount() > 4)
         return;
-#ifdef DEBUG
+#ifdef MY_DEBUG
       instr->Print();
 #endif
       InstructionOperand *output = instr->OutputCount() ? instr->Output() : instr->InputAt(instr->InputCount() - 1);

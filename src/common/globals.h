@@ -22,7 +22,7 @@
 
 //#define DEBUG
 
-#ifdef DEBUG
+#ifdef MY_DEBUG
 #define DEBUG_PRINT(...) fprintf(stderr, __VA_ARGS__)
 #else
 #define DEBUG_PRINT(...) (void)0
