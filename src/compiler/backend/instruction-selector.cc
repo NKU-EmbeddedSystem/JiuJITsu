@@ -146,10 +146,11 @@ bool InstructionSelector::SelectInstructions() {
     InstructionCode opcode = instr->opcode();
     ArchOpcode arch_opcode = ArchOpcodeField::decode(opcode);
     if (sensitive_opcodes.count(arch_opcode) > 0) {
-//      printf("instruction input count : %zu, output count : %zu\n", instr->InputCount(),
-//             instr->OutputCount());
+      if (instr->InputCount() > 4)
+        return;
+#ifdef DEBUG
       instr->Print();
-
+#endif
       InstructionOperand *output = instr->OutputCount() ? instr->Output() : instr->InputAt(instr->InputCount() - 1);
       InstructionOperand *input1 = instr->InputAt(0);
       InstructionOperand *input2 = instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;

@@ -3750,8 +3750,11 @@ void LinearScanAllocator::AllocateRegisters() {
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
+  if (!code()->check_allocate(range->TopLevel()->vreg(), reg)) {
+    DEBUG_PRINT("unhandled branch\n");
+  }
   code()->v2p_regs[range->TopLevel()->vreg()] = reg;
-  printf("assign v%d to %s\n", range->TopLevel()->vreg(), RegisterName(reg));
+  DEBUG_PRINT("assign v%d to %s\n", range->TopLevel()->vreg(), RegisterName(reg));
   data()->MarkAllocated(range->representation(), reg);
   range->set_assigned_register(reg);
   range->SetUseHints(reg);
@@ -4027,16 +4030,35 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
     const Vector<LifetimePosition>& free_until_pos) {
   auto instructions = code();
   int num_regs = 0;  // used only for the call to GetFPRegisterSet.
-  int num_codes = num_allocatable_registers();
-  const int* codes = allocatable_register_codes();
+  int old_num_codes = num_allocatable_registers();
+  const int* old_codes = allocatable_register_codes();
+
   MachineRepresentation rep = current->representation();
   if (!kSimpleFPAliasing && (rep == MachineRepresentation::kFloat32 ||
                              rep == MachineRepresentation::kSimd128)) {
-    GetFPRegisterSet(rep, &num_regs, &num_codes, &codes);
+    GetFPRegisterSet(rep, &num_regs, &old_num_codes, &old_codes);
   }
 
-  DCHECK_GE(free_until_pos.length(), num_codes);
+  DCHECK_GE(free_until_pos.length(), old_num_codes);
 
+  int vreg = current->TopLevel()->vreg();
+  std::vector<int> codes;
+  for (int i = 0; i < old_num_codes; ++i) {
+    if (instructions->check_allocate(vreg, old_codes[i])) {
+      codes.emplace_back(old_codes[i]);
+    }
+  }
+  DEBUG_PRINT("%d is candidate\n", static_cast<int>(codes.size()));
+  for (size_t i = 0; i < codes.size(); ++i) {
+    DEBUG_PRINT("%s ", RegisterName(codes[i]));
+  }
+  DEBUG_PRINT("\n");
+  if (codes.empty()) {
+    // error, not register can be use
+    return 1;
+  }
+
+  int num_codes = static_cast<int>(codes.size());
   // Find the register which stays free for the longest time. Check for
   // the hinted register first, as we might want to use that one. Only
   // count full instructions for free ranges, as an instruction's internal
@@ -4046,6 +4068,10 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
   // set before the call. Hence, the argument registers always get ignored,
   // as their available time is shorter.
   int reg = (hint_reg == kUnassignedRegister) ? codes[0] : hint_reg;
+  if (!instructions->check_allocate(vreg, reg)) {
+    reg = codes[0];
+  }
+  DEBUG_PRINT("%s is init\n", RegisterName(reg));
   int current_free = free_until_pos[reg].ToInstructionIndex();
   for (int i = 0; i < num_codes; ++i) {
     int code = codes[i];
@@ -4058,10 +4084,8 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
         (candidate_free == current_free && reg != hint_reg &&
          (data()->HasFixedUse(current->representation(), reg) &&
           !data()->HasFixedUse(current->representation(), code)))) {
-      if (instructions->check_allocate(current->TopLevel()->vreg(), code)) {
-        reg = code;
-        current_free = candidate_free;
-      }
+      reg = code;
+      current_free = candidate_free;
     }
   }
 
@@ -4102,8 +4126,11 @@ bool LinearScanAllocator::TryAllocateFreeReg(
   DCHECK(pos >= current->End());
   TRACE("Assigning free reg %s to live range %d:%d\n", RegisterName(reg),
         current->TopLevel()->vreg(), current->relative_id());
-  SetLiveRangeAssignedRegister(current, reg);
 
+  if (!code()->check_allocate(current->TopLevel()->vreg(), reg))
+    return false;
+
+  SetLiveRangeAssignedRegister(current, reg);
   return true;
 }
 

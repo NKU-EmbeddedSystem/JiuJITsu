@@ -23,8 +23,10 @@ namespace compiler {
 
 std::unordered_set<uint8_t>& InstructionSequence::invalid_codes = *new std::unordered_set<uint8_t> {
   0x0f,
-  0x50, 0x51, 0x52, 0x53, 0x54, 0x56, 0x57, 0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5e, 0x5f, 0x90, 0x91, 0x92, 0x93, 0x94, 0x98, 0x99,
+  0x50, 0x51, 0x52, 0x53, 0x54, 0x56, 0x57,
+  0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5e, 0x5f,
   0x74, 0x7c, 0x84, 0x8c, 0xb4,
+  0x90, 0x91, 0x92, 0x93, 0x94, 0x98, 0x99,
   0xc3, 0xc9, 0xcc, 0xcf, 0xec, 0xee, 0xef
 };
 
@@ -36,38 +38,56 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   if (op_registers.count(vreg) > 0) {
     Register reg = Register::from_code(preg);
     uint8_t code = gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t >(0b101), static_cast<uint8_t>(reg.low_bits()));
-    if (invalid_codes.count(code) > 0)
+    if (invalid_codes.count(code) > 0) {
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("code = %x\n", code);
       return false;
-  }
-  // check
-  uint32_t index = Register::from_code(preg).low_bits();
-  for (int i = 0; i < 4; ++i) {
-    auto& candidate_set = restricted_maps[i][vreg];
-    for (auto& val : candidate_set) {
-      if (v2p_regs.count(val) == 0)
-        continue;
-      uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
-      uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
-      printf("v%d:%d, v%d:%d gen code %x\n", vreg, index, val, base, static_cast<uint32_t>(code));
-      if (invalid_codes.count(code) > 0) {
-        printf("check fail\n");
-        return false;
-      }
     }
   }
-  // reverse check
-  uint32_t base = Register::from_code(preg).low_bits();
-  index = 0;
+
+  // check
+  uint32_t index = Register::from_code(preg).low_bits();
+  if (index == 2) {
+    if (rev_restricted_maps[1][vreg].size() > 0 || restricted_maps[2][vreg].size() > 0) {
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      return false;
+    }
+  }
+  if (index == 3) {
+    if (rev_restricted_maps[1][vreg].size() > 0) {
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      return false;
+    }
+  }
+
   for (int i = 0; i < 4; ++i) {
     auto& candidate_set = rev_restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
       if (v2p_regs.count(val) == 0)
         continue;
+      uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
+      uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
+      if (invalid_codes.count(code) > 0) {
+        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+        return false;
+      }
+    }
+  }
+
+  // reverse check
+  uint32_t base = Register::from_code(preg).low_bits();
+  index = 0;
+  for (int i = 0; i < 4; ++i) {
+    auto& candidate_set = restricted_maps[i][vreg];
+    for (auto& val : candidate_set) {
+      if (v2p_regs.count(val) == 0)
+        continue;
       index = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
-      printf("v%d:%d, v%d:%d gen code %x\n", vreg, index, val, base, static_cast<uint32_t>(code));
       if (invalid_codes.count(code) > 0) {
-        printf("check fail\n");
+        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -77,21 +97,21 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 
 void InstructionSequence::print_restricted_maps(){
   for (int i = 0; i < 4; ++i) {
-    printf("mod %d\n", i);
+    DEBUG_PRINT("mod %d\n", i);
     for (auto& pairs : restricted_maps[i]) {
-      printf("v%d", pairs.first);
-      printf(" ->");
+      DEBUG_PRINT("v%d", pairs.first);
+      DEBUG_PRINT(" ->");
       for (auto& reg : pairs.second) {
-        printf("v%d ", reg);
+        DEBUG_PRINT("v%d ", reg);
       }
-      printf("\n");
+      DEBUG_PRINT("\n");
     }
   }
-  printf("op restricted\n");
+  DEBUG_PRINT("op restricted\n");
   for (auto& reg : op_registers) {
-    printf("v%d ", reg);
+    DEBUG_PRINT("v%d ", reg);
   }
-  printf("\n");
+  DEBUG_PRINT("\n");
 }
 
 const RegisterConfiguration* (*GetRegConfig)() = RegisterConfiguration::Default;
