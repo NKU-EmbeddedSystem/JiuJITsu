@@ -49,13 +49,13 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   uint32_t index = Register::from_code(preg).low_bits();
   if (index == 2) {
     if (rev_restricted_maps[1][vreg].size() > 0 || restricted_maps[2][vreg].size() > 0) {
-      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
   if (index == 3) {
     if (rev_restricted_maps[1][vreg].size() > 0) {
-      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
@@ -68,8 +68,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       if (invalid_codes.count(code) > 0) {
-        fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        fprintf(stderr, "v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -86,8 +86,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       index = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       if (invalid_codes.count(code) > 0) {
-        fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        fprintf(stderr, "v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
         return false;
       }
     }
