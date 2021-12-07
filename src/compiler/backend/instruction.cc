@@ -39,11 +39,31 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     if (invalid_codes.count(code) > 0)
       return false;
   }
+  // check
   uint32_t index = Register::from_code(preg).low_bits();
   for (int i = 0; i < 4; ++i) {
     auto& candidate_set = restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
+      if (v2p_regs.count(val) == 0)
+        continue;
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
+      uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
+      printf("v%d:%d, v%d:%d gen code %x\n", vreg, index, val, base, static_cast<uint32_t>(code));
+      if (invalid_codes.count(code) > 0) {
+        printf("check fail\n");
+        return false;
+      }
+    }
+  }
+  // reverse check
+  uint32_t base = Register::from_code(preg).low_bits();
+  index = 0;
+  for (int i = 0; i < 4; ++i) {
+    auto& candidate_set = rev_restricted_maps[i][vreg];
+    for (auto& val : candidate_set) {
+      if (v2p_regs.count(val) == 0)
+        continue;
+      index = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       printf("v%d:%d, v%d:%d gen code %x\n", vreg, index, val, base, static_cast<uint32_t>(code));
       if (invalid_codes.count(code) > 0) {
@@ -1200,18 +1220,22 @@ std::ostream& operator<<(std::ostream& os, const InstructionSequence& code) {
 
 void InstructionSequence::add_scale1_registers(uint32_t reg, uint32_t res) {
   restricted_maps[0][reg].insert(res);
+  rev_restricted_maps[0][res].insert(reg);
 }
 
 void InstructionSequence::add_scale2_registers(uint32_t reg, uint32_t res) {
   restricted_maps[1][reg].insert(res);
+  rev_restricted_maps[1][res].insert(reg);
 }
 
 void InstructionSequence::add_scale4_registers(uint32_t reg, uint32_t res) {
   restricted_maps[2][reg].insert(res);
+  rev_restricted_maps[2][res].insert(reg);
 }
 
 void InstructionSequence::add_scale8_registers(uint32_t reg, uint32_t res) {
   restricted_maps[3][reg].insert(res);
+  rev_restricted_maps[3][res].insert(reg);
 }
 
 void InstructionSequence::add_83_register(uint32_t reg) {

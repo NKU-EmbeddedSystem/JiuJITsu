@@ -1690,6 +1690,7 @@ class V8_EXPORT_PRIVATE InstructionSequence final
 
   // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
   std::unordered_map<uint32_t, std::unordered_set<uint32_t>> restricted_maps[4];
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>> rev_restricted_maps[4];
   // not allowed to be rsp, r12, rdi, r14, rsi, r15
   std::unordered_set<uint32_t> op_registers;
   // for quick search vreg to physical reg, 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
