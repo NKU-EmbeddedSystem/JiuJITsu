@@ -39,8 +39,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     Register reg = Register::from_code(preg);
     uint8_t code = gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t >(0b101), static_cast<uint8_t>(reg.low_bits()));
     if (invalid_codes.count(code) > 0) {
-      fprintf(stderr, "assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-      fprintf(stderr, "code = %x\n", code);
+      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("code = %x\n", code);
       return false;
     }
   }
