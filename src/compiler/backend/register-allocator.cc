@@ -3499,7 +3499,7 @@ void LinearScanAllocator::AllocateRegisters() {
 #ifdef MY_DEBUG
   code()->print_restricted_maps();
 #endif
-
+  spill_count = 0;
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 
@@ -3750,6 +3750,7 @@ void LinearScanAllocator::AllocateRegisters() {
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
+  fprintf(stderr, "spill count : %d\n", spill_count);
 }
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
@@ -4140,6 +4141,7 @@ bool LinearScanAllocator::TryAllocateFreeReg(
 
 void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
                                              SpillMode spill_mode) {
+  spill_count++;
   UsePosition* register_use = current->NextRegisterPosition(current->Start());
   if (register_use == nullptr) {
     // There is no use in the current live range that requires a register.

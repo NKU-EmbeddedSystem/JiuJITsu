@@ -1513,6 +1513,7 @@ class LinearScanAllocator final : public RegisterAllocator {
   // Used to avoid scanning for updates even if none are present.
   LifetimePosition next_active_ranges_change_;
   LifetimePosition next_inactive_ranges_change_;
+  int spill_count;
 
 #ifdef DEBUG
   LifetimePosition allocation_finger_;
