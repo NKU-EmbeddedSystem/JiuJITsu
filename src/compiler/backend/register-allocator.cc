@@ -1,6 +1,7 @@
 // Copyright 2014 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+//#define MY_DEBUG
 
 #include "src/compiler/backend/register-allocator.h"
 
@@ -4247,6 +4248,7 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
       register_use->HintRegister(&hint_reg) ||
       current->RegisterFromBundle(&hint_reg);
   int reg = PickRegisterThatIsAvailableLongest(current, hint_reg, use_pos);
+  DEBUG_PRINT("blocking v%d pick register %s\n", current->TopLevel()->vreg(), RegisterName(reg));
 
   if (use_pos[reg] < register_use->pos()) {
     // If there is a gap position before the next register use, we can
@@ -4281,13 +4283,14 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
   // If there is no register available at all, we can only spill this range.
   // Happens for instance on entry to deferred code where registers might
   // become blocked yet we aim to reload ranges.
-  if (new_end == current->Start()) {
-    SpillBetween(current, new_end, register_use->pos(), spill_mode);
+  if (new_end <= current->Start()) {
+    SpillBetween(current, current->Start(), register_use->pos(), spill_mode);
     return;
   }
 
   // Split at the new end if we found one.
   if (new_end != current->End()) {
+    // spill error here
     LiveRange* tail = SplitBetween(current, current->Start(), new_end);
     AddToUnhandled(tail);
   }
