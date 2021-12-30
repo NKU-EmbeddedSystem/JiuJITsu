@@ -3500,7 +3500,7 @@ void LinearScanAllocator::AllocateRegisters() {
   code()->print_restricted_maps();
 #endif
   spill_count = 0;
-  code()->construct_sensitive_map();
+//  code()->construct_sensitive_map();
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 

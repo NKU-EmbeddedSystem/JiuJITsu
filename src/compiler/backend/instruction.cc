@@ -284,22 +284,20 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 
   // check
   uint32_t index = Register::from_code(preg).low_bits();
-  if (index == 2) {
-    if (rev_restricted_maps[1][vreg].size() > 0 || restricted_maps[2][vreg].size() > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-      return false;
-    }
-  }
-  if (index == 3) {
-    if (rev_restricted_maps[1][vreg].size() > 0) {
+  if (index == 2 || index == 3) {
+    if (rev_restricted_maps[1].count(vreg)) {
       DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
 
   for (int i = 0; i < 4; ++i) {
+    if (rev_restricted_maps[i].count(vreg) == 0)
+      continue;
     auto& candidate_set = rev_restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
+      if (rev_restricted_maps[i].count(vreg) == 0)
+        assert(false);
       if (v2p_regs.count(val) == 0)
         continue;
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
@@ -316,8 +314,12 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   uint32_t base = Register::from_code(preg).low_bits();
   index = 0;
   for (int i = 0; i < 4; ++i) {
+    if (restricted_maps[i].count(vreg) == 0)
+      continue;
     auto& candidate_set = restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
+      if (restricted_maps[i].count(vreg) == 0)
+        assert(false);
       if (v2p_regs.count(val) == 0)
         continue;
       index = Register::from_code(v2p_regs[val]).low_bits();
