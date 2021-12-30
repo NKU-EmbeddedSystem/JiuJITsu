@@ -284,7 +284,7 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 
   // check
   uint32_t index = Register::from_code(preg).low_bits();
-  if (index == 2 || index == 3) {
+  if (index == 0b010 || index == 0b011) {
     if (rev_restricted_maps[1].count(vreg)) {
       DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
       return false;
