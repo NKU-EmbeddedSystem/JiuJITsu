@@ -1692,13 +1692,17 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   std::unordered_map<uint32_t, std::unordered_set<uint32_t>> restricted_maps[4];
   std::unordered_map<uint32_t, std::unordered_set<uint32_t>> rev_restricted_maps[4];
   // not allowed to be rsp, r12, rdi, r14, rsi, r15
-  std::unordered_set<uint32_t> op_registers;
+//  std::unordered_set<uint32_t> op_registers;
   // for quick search vreg to physical reg, 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
 
   std::unordered_map<uint32_t, uint32_t> v2p_regs;
   // malicous byte
   static std::unordered_set<uint8_t>& invalid_codes;
+  static std::unordered_set<ArchOpcode>& sensitive_opcodes;
 
+  // 构建sensitive map
+  void add_sensitive_map(Instruction* instr);
+  void construct_sensitive_map();
   // 用res约束reg
   void add_scale1_registers(uint32_t reg, uint32_t res);
   void add_scale2_registers(uint32_t reg, uint32_t res);
