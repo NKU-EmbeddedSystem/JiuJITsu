@@ -3750,7 +3750,7 @@ void LinearScanAllocator::AllocateRegisters() {
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
-  fprintf(stderr, "spill count : %d\n", spill_count);
+  DEBUG_PRINT("spill count : %d\n", spill_count);
 }
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
@@ -4053,11 +4053,7 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
       codes.emplace_back(old_codes[i]);
     }
   }
-  DEBUG_PRINT("%d is candidate\n", static_cast<int>(codes.size()));
-  for (size_t i = 0; i < codes.size(); ++i) {
-    DEBUG_PRINT("%s ", RegisterName(codes[i]));
-  }
-  DEBUG_PRINT("\n");
+
   if (codes.empty()) {
     // error, not register can be use
     return 1;
@@ -4076,7 +4072,6 @@ int LinearScanAllocator::PickRegisterThatIsAvailableLongest(
   if (!instructions->check_allocate(vreg, reg)) {
     reg = codes[0];
   }
-  DEBUG_PRINT("%s is init\n", RegisterName(reg));
   int current_free = free_until_pos[reg].ToInstructionIndex();
   for (int i = 0; i < num_codes; ++i) {
     int code = codes[i];

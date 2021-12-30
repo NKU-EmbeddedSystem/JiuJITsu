@@ -3661,6 +3661,9 @@ void PipelineImpl::AllocateRegistersForTopTier(
         "PreAllocation", data->top_tier_register_allocation_data());
   }
 
+  DEBUG_PRINT("------------------------\n");
+  DEBUG_PRINT("function: %s\n", data->debug_name());
+
   Run<AllocateGeneralRegistersPhase<LinearScanAllocator>>();
 
   if (data->sequence()->HasFPVirtualRegisters()) {
