@@ -1,0 +1,1 @@
+out/x64.release/d8 --test test/mjsunit/mjsunit.js test/mjsunit/asm/sqlite3/sqlite-pointer-masking.js --random-seed=-1610485042 --nohard-abort --testing-d8-test-runner

@@ -26,10 +26,11 @@ namespace internal {
 namespace compiler {
 // movsd may be too complex because its syntax is not portable with other instructions
 std::unordered_set<ArchOpcode> &InstructionSelector::sensitive_opcodes = *new std::unordered_set<ArchOpcode>{
-    kX64Add, kX64Add32, kX64And, kX64And32,kX64Cmp, kX64Cmp32, kX64Cmp16, kX64Cmp8,
-    kX64Or, kX64Or32, kX64Sub, kX64Sub32, kX64Xor, kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
+//    kX64Add, kX64Add32, kX64And, kX64And32,kX64Cmp, kX64Cmp32, kX64Cmp16, kX64Cmp8,
+//    kX64Or, kX64Or32, kX64Sub, kX64Sub32, kX64Xor, kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
     kX64Movb, kX64Movl, kX64Movq, kX64Movw,
-    kX64Lea, kX64Lea32};
+    kX64Lea, kX64Lea32
+};
 
 
 InstructionSelector::InstructionSelector(
