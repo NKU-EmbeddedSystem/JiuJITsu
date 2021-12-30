@@ -52,8 +52,10 @@ for (var j = 0; j < tests.length; j++) {
     var startTime = new Date;
     if (testName.indexOf('parse-only') >= 0)
         checkSyntax(testName);
-    else
-        load(testName);
+    else {
+        for (var i = 0; i < 100; i++)
+            load(testName);
+    }
     times[j] = new Date() - startTime;
     gc();
 }
