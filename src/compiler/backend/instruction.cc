@@ -83,9 +83,9 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
         case AddressingMode::kMode_MR:
           break;
         case kMode_None: // r1, r2
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (arch_opcode == kX64Sub) {
+//          if (!get_virtual_reg(input1, virtual_reg))
+//            break;
+//          if (arch_opcode == kX64Sub) {
             // 用输出约束输入
             // map[input] = output
             // 这种应该很少，mod很少
@@ -93,8 +93,8 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
             // sub rsi/r14
             // sub rdi/r15
             // get vreg
-            add_83_register(virtual_reg);
-          }
+//            add_83_register(virtual_reg);
+//          }
           break;
         case kMode_MRI: // leal rax,[rbx - 0x3d]
           if (!get_virtual_reg(input1, virtual_reg))
@@ -109,63 +109,17 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
           // map[input1] = output
           if (is_int8(displacement)) {
             add_scale2_registers(output_reg, virtual_reg);
-          } else if (is_int32(displacement)) {
-            add_scale4_registers(output_reg, virtual_reg);
           } else {
-            // this maybe error
-            printf("error format displacement %d\n", displacement);
             add_scale4_registers(output_reg, virtual_reg);
           }
           break;
         case kMode_MR1: // leal rax,[rbx + rax]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale1_registers(virtual_reg, virtual_reg2);
-          // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          add_scale1_registers(output_reg, virtual_reg);
-          break;
         case kMode_MR2: // leal rbx,[rax + rbx * 2]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale2_registers(virtual_reg, virtual_reg2);
-          // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          add_scale1_registers(output_reg, virtual_reg);
-          break;
         case kMode_MR4: // leal rbx, [rax + rbx * 4]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale4_registers(virtual_reg, virtual_reg2);
-          // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          add_scale1_registers(output_reg, virtual_reg);
-          break;
         case kMode_MR8: // leal rbx, [rax + rbx * 8]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale8_registers(virtual_reg, virtual_reg2);
-          // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          add_scale1_registers(output_reg, virtual_reg);
           break;
         case kMode_MR1I: // leal rbx, [rax + rbx - 0x3d]
+          // don't know why leal rab, [rbx - 0x3d] belonging to this
           if (!get_virtual_reg(input1, virtual_reg))
             break;
           if (!get_virtual_reg(input2, virtual_reg2))
@@ -193,13 +147,13 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
           imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
           if (!get_imm(imm, displacement, this)) break;
           // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          if (is_int8(displacement)) {
-            add_scale2_registers(output_reg, virtual_reg);
-          } else {
-            add_scale4_registers(output_reg, virtual_reg);
-          }
+//          if (!get_virtual_reg(output, output_reg))
+//            break;
+//          if (is_int8(displacement)) {
+//            add_scale2_registers(output_reg, virtual_reg);
+//          } else {
+//            add_scale4_registers(output_reg, virtual_reg);
+//          }
           break;
         case kMode_MR4I: // leal rbx, [rax + rbx * 4 - 0x3d]
           if (!get_virtual_reg(input1, virtual_reg))
@@ -211,13 +165,13 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
           imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
           if (!get_imm(imm, displacement, this)) break;
           // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          if (is_int8(displacement)) {
-            add_scale2_registers(output_reg, virtual_reg);
-          } else {
-            add_scale4_registers(output_reg, virtual_reg);
-          }
+//          if (!get_virtual_reg(output, output_reg))
+//            break;
+//          if (is_int8(displacement)) {
+//            add_scale2_registers(output_reg, virtual_reg);
+//          } else {
+//            add_scale4_registers(output_reg, virtual_reg);
+//          }
           break;
         case kMode_MR8I: // leal rbx, [rax + rbx * 8 - 0x3d]
           if (!get_virtual_reg(input1, virtual_reg))
@@ -229,30 +183,22 @@ void InstructionSequence::add_sensitive_map(Instruction* instr){
           imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
           if (!get_imm(imm, displacement, this)) break;
           // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          if (is_int8(displacement)) {
-            add_scale2_registers(output_reg, virtual_reg);
-          } else {
-            add_scale4_registers(output_reg, virtual_reg);
-          }
+//          if (!get_virtual_reg(output, output_reg))
+//            break;
+//          if (is_int8(displacement)) {
+//            add_scale2_registers(output_reg, virtual_reg);
+//          } else {
+//            add_scale4_registers(output_reg, virtual_reg);
+//          }
           break;
         case kMode_M1: // leal rbx, [rbp + rbx]
-          break;
         case kMode_M2: // leal rbx,[rbp + rbx * 2]
-          break;
         case kMode_M4: // leal rbx,[rbp + rbx * 4]
-          break;
         case kMode_M8: // leal rbx,[rbp + rbx * 8]
-          break;
         case kMode_M1I: // leal rbx,[rbp + rbx - 0x3d]
-          break;
         case kMode_M2I: // leal rbx, [rbp + rbx * 2 - 0x3d]
-          break;
         case kMode_M4I: // leal rbx,[rbp + rbx * 4 - 0x3d]
-          break;
         case kMode_M8I: // leal rbx,[rbp + rbx * 8 - 0x3d]
-          break;
         case kMode_Root:
           break;
       }
@@ -296,8 +242,6 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       continue;
     auto& candidate_set = rev_restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
-      if (rev_restricted_maps[i].count(vreg) == 0)
-        assert(false);
       if (v2p_regs.count(val) == 0)
         continue;
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
@@ -318,8 +262,6 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       continue;
     auto& candidate_set = restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
-      if (restricted_maps[i].count(vreg) == 0)
-        assert(false);
       if (v2p_regs.count(val) == 0)
         continue;
       index = Register::from_code(v2p_regs[val]).low_bits();
