@@ -281,6 +281,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     }
   }
 #endif
+
+#ifdef NONE
   // check
   uint32_t index = Register::from_code(preg).low_bits();
   if (index == 2) {
@@ -328,6 +330,7 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       }
     }
   }
+#endif
   return true;
 }
 
