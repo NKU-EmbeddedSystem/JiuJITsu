@@ -1473,9 +1473,9 @@ class LinearScanAllocator final : public RegisterAllocator {
 
   // Helper methods for allocating registers.
   bool TryReuseSpillForPhi(TopLevelLiveRange* range);
-  int PickRegisterThatIsAvailableLongest(
+  bool PickRegisterThatIsAvailableLongest(
       LiveRange* current, int hint_reg,
-      const Vector<LifetimePosition>& free_until_pos);
+      const Vector<LifetimePosition>& free_until_pos, int& reg);
   bool TryAllocateFreeReg(LiveRange* range,
                           const Vector<LifetimePosition>& free_until_pos);
   bool TryAllocatePreferredReg(LiveRange* range,
@@ -1501,6 +1501,8 @@ class LinearScanAllocator final : public RegisterAllocator {
                          SpillMode spill_mode);
   void SplitAndSpillIntersecting(LiveRange* range, SpillMode spill_mode);
 
+  int SplitRRange(LiveRange *current, const Vector <LifetimePosition> &free_until_pos);
+
   void PrintRangeRow(std::ostream& os, const TopLevelLiveRange* toplevel);
 
   void PrintRangeOverview(std::ostream& os);
@@ -1518,7 +1520,8 @@ class LinearScanAllocator final : public RegisterAllocator {
 #ifdef DEBUG
   LifetimePosition allocation_finger_;
 #endif
-};
+
+  };
 
 class OperandAssigner final : public ZoneObject {
  public:
