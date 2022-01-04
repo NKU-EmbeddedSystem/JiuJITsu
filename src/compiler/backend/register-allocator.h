@@ -1514,6 +1514,7 @@ class LinearScanAllocator final : public RegisterAllocator {
   LifetimePosition next_active_ranges_change_;
   LifetimePosition next_inactive_ranges_change_;
 
+  int spill_count;
 #ifdef DEBUG
   LifetimePosition allocation_finger_;
 #endif
