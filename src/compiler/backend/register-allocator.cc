@@ -35,6 +35,17 @@ static constexpr int kFloat32Bit =
 static constexpr int kSimd128Bit =
     RepresentationBit(MachineRepresentation::kSimd128);
 
+// fast rand
+static unsigned int g_seed;
+// Used to seed the generator.
+inline void fast_srand(int seed) {
+    g_seed = seed;
+  }
+// Output value in range [0, 32767]
+inline int fast_rand() {
+    g_seed = (214013*g_seed+2531011);
+    return (g_seed>>16)&0x7FFF;
+}
 
 const InstructionBlock* GetContainingLoop(const InstructionSequence* sequence,
                                           const InstructionBlock* block) {
@@ -3491,7 +3502,7 @@ bool LinearScanAllocator::HasNonDeferredPredecessor(InstructionBlock* block) {
 }
 
 void LinearScanAllocator::AllocateRegisters() {
-  srand((unsigned)time(NULL));
+  fast_srand(static_cast<int>(time(NULL)));
   DCHECK(unhandled_live_ranges().empty());
   DCHECK(active_live_ranges().empty());
   for (int reg = 0; reg < num_registers(); ++reg) {
@@ -4105,7 +4116,7 @@ bool LinearScanAllocator::TryAllocateFreeReg(
   if(count>0)
   {
 	  // reg=codes[code_nums[rand()%count]];
-	  reg=codes[code_nums[rand()%count]];
+	  reg=codes[code_nums[fast_rand()%count]];
   }
 
   LifetimePosition pos = free_until_pos[reg];
