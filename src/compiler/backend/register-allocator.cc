@@ -3502,6 +3502,7 @@ bool LinearScanAllocator::HasNonDeferredPredecessor(InstructionBlock* block) {
 }
 
 void LinearScanAllocator::AllocateRegisters() {
+  spill_count = 0;
   fast_srand(static_cast<int>(time(NULL)));
   DCHECK(unhandled_live_ranges().empty());
   DCHECK(active_live_ranges().empty());
@@ -3759,6 +3760,7 @@ void LinearScanAllocator::AllocateRegisters() {
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
+  fprintf(stderr, "[spill_count] %s:%d\n", data()->debug_name(), spill_count);
 }
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
@@ -4188,6 +4190,7 @@ bool LinearScanAllocator::TryAllocateFreeReg(
 */
 void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
                                              SpillMode spill_mode) {
+  spill_count++;
   UsePosition* register_use = current->NextRegisterPosition(current->Start());
   if (register_use == nullptr) {
     // There is no use in the current live range that requires a register.

@@ -1509,6 +1509,7 @@ class LinearScanAllocator final : public RegisterAllocator {
   ZoneVector<LiveRange*> active_live_ranges_;
   ZoneVector<InactiveLiveRangeQueue> inactive_live_ranges_;
 
+  int spill_count;
   // Approximate at what position the set of ranges will change next.
   // Used to avoid scanning for updates even if none are present.
   LifetimePosition next_active_ranges_change_;
