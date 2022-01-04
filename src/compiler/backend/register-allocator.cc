@@ -3751,7 +3751,7 @@ void LinearScanAllocator::AllocateRegisters() {
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
-  DEBUG_PRINT("spill count : %d\n", spill_count);
+  fprintf(stderr, "[spill count] %s:%d\n", data()->debug_name(), spill_count);
 }
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
