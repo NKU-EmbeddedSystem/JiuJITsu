@@ -2221,13 +2221,13 @@ CodeGenerator::CodeGenResult CodeGenerator::AssembleArchInstruction(
         __ Movsd(i.OutputDoubleRegister(), i.InputOperand(0));
       }
       break;
-    case kX64Lea32: {
+    case kX64Lea32: { // to disable Lea instructions
       AddressingMode mode = AddressingModeField::decode(instr->opcode());
       // Shorten "leal" to "addl", "subl" or "shll" if the register allocation
       // and addressing mode just happens to work out. The "addl"/"subl" forms
       // in these cases are faster based on measurements.
       if (i.InputRegister(0) == i.OutputRegister()) {
-        if (mode == kMode_MRI) {
+        if (mode == kMode_MRI) { // leal rax, [rax + disp]
           int32_t constant_summand = i.InputInt32(1);
           DCHECK_NE(0, constant_summand);
           if (constant_summand > 0) {
@@ -2236,26 +2236,100 @@ CodeGenerator::CodeGenResult CodeGenerator::AssembleArchInstruction(
             __ subl(i.OutputRegister(),
                     Immediate(base::NegateWithWraparound(constant_summand)));
           }
-        } else if (mode == kMode_MR1) {
-          if (i.InputRegister(1) == i.OutputRegister()) {
+        } else if (mode == kMode_MR1) { // leal rax, [rax + rbx]
+          if (i.InputRegister(1) == i.OutputRegister()) { // leal rax, [rax + rax]
             __ shll(i.OutputRegister(), Immediate(1));
           } else {
             __ addl(i.OutputRegister(), i.InputRegister(1));
           }
-        } else if (mode == kMode_M2) {
+        } else if (mode == kMode_M2) { // leal, rax, [rax*2]
           __ shll(i.OutputRegister(), Immediate(1));
-        } else if (mode == kMode_M4) {
+        } else if (mode == kMode_M4) { // leal rax, [rax * 4]
           __ shll(i.OutputRegister(), Immediate(2));
-        } else if (mode == kMode_M8) {
+        } else if (mode == kMode_M8) { // leal rax, [rax * 8]
           __ shll(i.OutputRegister(), Immediate(3));
         } else {
-          __ leal(i.OutputRegister(), i.MemoryOperand());
+          // need to modify here
+          // leal rax, [rax + rbx*4 + disp]
+          switch (mode) {
+            case kMode_MR2: // leal rax,[rax + rbx * 2]
+            case kMode_MR4: // leal rax, [rax + rbx * 4]
+            case kMode_MR8: // leal rax, [rax + rbx * 8]
+              __ leal(i.OutputRegister(), i.MemoryOperand());
+              break;
+#define MRxI_ADD_IMM \
+              DCHECK_NE(0, i.InputInt32(2)); \
+              if (i.InputInt32(2) > 0) { \
+                __ addl(i.OutputRegister(), Immediate(i.InputInt32(2))); \
+              } else { \
+                __ subl(i.OutputRegister(), \
+                        Immediate(base::NegateWithWraparound(i.InputInt32(2)))); \
+              }
+            case kMode_MR1I: // leal rax, [rax + rbx - 0x3d]
+              // change MRxI to MRx
+            case kMode_MR2I: // leal rax, [rax + rbx * 2 - 0x3d]
+            case kMode_MR4I: // leal rax, [rax + rbx * 4 - 0x3d]
+            case kMode_MR8I: // leal rax, [rax + rbx * 8 - 0x3d]
+              __ leal(i.OutputRegister(), Operand(i.InputRegister(0), i.InputRegister(1), i.ScaleFor(kMode_MR1I, mode), 0));
+              MRxI_ADD_IMM
+              break;
+#define MxI_ADD_IMM \
+              DCHECK_NE(0, i.InputInt32(1)); \
+              if (i.InputInt32(1) > 0) { \
+                __ addl(i.OutputRegister(), Immediate(i.InputInt32(1))); \
+              } else { \
+                __ subl(i.OutputRegister(), \
+                        Immediate(base::NegateWithWraparound(i.InputInt32(1)))); \
+              }
+            case kMode_M1I: // leal rbx,[rbx - 0x3d]
+            MxI_ADD_IMM
+              break;
+            case kMode_M2I: // leal rbx, [rbx * 2 - 0x3d]
+              __ shll(i.OutputRegister(), Immediate(1));
+              MxI_ADD_IMM
+              break;
+            case kMode_M4I: // leal rbx,[rbx * 4 - 0x3d]
+              __ shll(i.OutputRegister(), Immediate(2));
+              MxI_ADD_IMM
+              break;
+            case kMode_M8I: // leal rbx,[rbx * 8 - 0x3d]
+              __ shll(i.OutputRegister(), Immediate(3));
+              MxI_ADD_IMM
+              break;
+            default:
+              __ leal(i.OutputRegister(), i.MemoryOperand());
+          }
+//          __ leal(i.OutputRegister(), i.MemoryOperand());
         }
       } else if (mode == kMode_MR1 &&
-                 i.InputRegister(1) == i.OutputRegister()) {
+                 i.InputRegister(1) == i.OutputRegister()) { // leal rax, [rbx + rax]
         __ addl(i.OutputRegister(), i.InputRegister(0));
       } else {
-        __ leal(i.OutputRegister(), i.MemoryOperand());
+        // need to modify here
+        switch (mode) {
+          case kMode_MRI: // lea rax, [rbx + disp]
+//            __ leal(i.OutputRegister(), i.MemoryOperand());
+            __ movq(i.OutputRegister(), i.InputRegister(0));
+            MxI_ADD_IMM
+            break;
+          case kMode_MR1I:
+          case kMode_MR2I:
+          case kMode_MR4I:
+          case kMode_MR8I:
+            __ leal(i.OutputRegister(), Operand(i.InputRegister(0), i.InputRegister(1), i.ScaleFor(kMode_MR1I, mode), 0));
+            MRxI_ADD_IMM
+            break;
+          case kMode_M1I:
+          case kMode_M2I:
+          case kMode_M4I:
+          case kMode_M8I:
+            __ leal(i.OutputRegister(), Operand(i.InputRegister(0), i.ScaleFor(kMode_M1I, mode), 0));
+            MxI_ADD_IMM
+            break;
+          default:
+            __ leal(i.OutputRegister(), i.MemoryOperand());
+        }
+//        __ leal(i.OutputRegister(), i.MemoryOperand());
       }
       __ AssertZeroExtended(i.OutputRegister());
       break;
@@ -2286,16 +2360,89 @@ CodeGenerator::CodeGenResult CodeGenerator::AssembleArchInstruction(
         } else if (mode == kMode_M8) {
           __ shlq(i.OutputRegister(), Immediate(3));
         } else {
-          __ leaq(i.OutputRegister(), i.MemoryOperand());
+          switch (mode) {
+            case kMode_MR2: // leal rax,[rax + rbx * 2]
+            case kMode_MR4: // leal rax, [rax + rbx * 4]
+            case kMode_MR8: // leal rax, [rax + rbx * 8]
+              __ leaq(i.OutputRegister(), i.MemoryOperand());
+              break;
+#define MRxI_ADD64_IMM \
+              DCHECK_NE(0, i.InputInt32(2)); \
+              if (i.InputInt32(2) > 0) { \
+                __ addq(i.OutputRegister(), Immediate(i.InputInt32(2))); \
+              } else { \
+                __ subq(i.OutputRegister(), \
+                        Immediate(base::NegateWithWraparound(i.InputInt32(2)))); \
+              }
+            case kMode_MR1I: // leal rax, [rax + rbx - 0x3d]
+              // change MRxI to MRx
+            case kMode_MR2I: // leal rax, [rax + rbx * 2 - 0x3d]
+            case kMode_MR4I: // leal rax, [rax + rbx * 4 - 0x3d]
+            case kMode_MR8I: // leal rax, [rax + rbx * 8 - 0x3d]
+              __ leaq(i.OutputRegister(), Operand(i.InputRegister(0), i.InputRegister(1), i.ScaleFor(kMode_MR1I, mode), 0));
+              MRxI_ADD64_IMM
+              break;
+#define MxI_ADD64_IMM \
+              DCHECK_NE(0, i.InputInt32(1)); \
+              if (i.InputInt32(1) > 0) { \
+                __ addq(i.OutputRegister(), Immediate(i.InputInt32(1))); \
+              } else { \
+                __ subq(i.OutputRegister(), \
+                        Immediate(base::NegateWithWraparound(i.InputInt32(1)))); \
+              }
+            case kMode_M1I: // leal rbx,[rbx - 0x3d]
+            MxI_ADD64_IMM
+              break;
+            case kMode_M2I: // leal rbx, [rbx * 2 - 0x3d]
+              __ shlq(i.OutputRegister(), Immediate(1));
+              MxI_ADD64_IMM
+              break;
+            case kMode_M4I: // leal rbx,[rbx * 4 - 0x3d]
+              __ shlq(i.OutputRegister(), Immediate(2));
+              MxI_ADD64_IMM
+              break;
+            case kMode_M8I: // leal rbx,[rbx * 8 - 0x3d]
+              __ shlq(i.OutputRegister(), Immediate(3));
+              MxI_ADD64_IMM
+              break;
+            default:
+              __ leaq(i.OutputRegister(), i.MemoryOperand());
+          }
+//          __ leaq(i.OutputRegister(), i.MemoryOperand());
         }
       } else if (mode == kMode_MR1 &&
                  i.InputRegister(1) == i.OutputRegister()) {
         __ addq(i.OutputRegister(), i.InputRegister(0));
       } else {
-        __ leaq(i.OutputRegister(), i.MemoryOperand());
+        switch (mode) {
+          case kMode_MRI: // lea rax, [rbx + disp]
+//            __ leaq(i.OutputRegister(), i.MemoryOperand());
+            __ movq(i.OutputRegister(), i.InputRegister(0));
+            MxI_ADD64_IMM
+            break;
+          case kMode_MR1I:
+          case kMode_MR2I:
+          case kMode_MR4I:
+          case kMode_MR8I:
+            __ leaq(i.OutputRegister(),
+                    Operand(i.InputRegister(0), i.InputRegister(1), i.ScaleFor(kMode_MR1I, mode), 0));
+            MRxI_ADD64_IMM
+            break;
+          case kMode_M1I:
+          case kMode_M2I:
+          case kMode_M4I:
+          case kMode_M8I:
+            __ leaq(i.OutputRegister(), Operand(i.InputRegister(0), i.ScaleFor(kMode_M1I, mode), 0));
+            MxI_ADD64_IMM
+            break;
+          default:
+            __ leaq(i.OutputRegister(), i.MemoryOperand());
+        }
+//        __ leaq(i.OutputRegister(), i.MemoryOperand());
       }
       break;
     }
+
     case kX64Dec32:
       __ decl(i.OutputRegister());
       break;
