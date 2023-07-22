@@ -1,0 +1,646 @@
+gap () () 
+          ArchNop
+gap () ([rax|R|w32] = v1(-);) 
+          ArchRet #0 [rax|R|w32]
+gap () () 
+          v1(R) = X64Lea32 : MR1 v2(R) v2(R)
+gap () () 
+          v2(R) = X64Lea32 : MR1 v3(R) v4(R)
+gap () () 
+          v4(R) = X64Lea32 : MR1 v5(R) v6(R)
+gap () (v3(R) = v7(-);) 
+          v3(1) = X64And32 v3(R) #33
+gap () () 
+          v6(R) = X64Lea32 : MR1 v8(R) v9(R)
+gap () (v7(R) = v10(-);) 
+          v7(1) = X64Sar32 v7(R) #1
+gap () () 
+          v9(R) = X64Lea32 : MR1 v11(R) v12(R)
+gap () (v8(R) = v13(-);) 
+          v8(1) = X64And32 v8(R) #24
+gap () () 
+          v12(R) = X64Lea32 : MR1 v14(R) v15(R)
+gap () (v11(R) = v16(-);) 
+          v11(1) = X64And32 v11(R) #23
+gap () (v13(R) = v17(-);) 
+          v13(1) = X64Sar32 v13(R) #1
+gap () () 
+          v15(R) = X64Lea32 : MR1 v18(R) v19(R)
+gap () (v14(R) = v20(-);) 
+          v14(1) = X64And32 v14(R) #22
+gap () (v16(R) = v21(-);) 
+          v16(1) = X64Sar32 v16(R) #1
+gap () () 
+          v19(R) = X64Lea32 : MR1 v22(R) v23(R)
+gap () (v18(R) = v24(-);) 
+          v18(1) = X64And32 v18(R) #21
+gap () (v20(R) = v25(-);) 
+          v20(1) = X64Sar32 v20(R) #1
+gap () () 
+          v23(R) = X64Lea32 : MR1 v26(R) v27(R)
+gap () (v22(R) = v28(-);) 
+          v22(1) = X64And32 v22(R) #20
+gap () (v24(R) = v29(-);) 
+          v24(1) = X64Sar32 v24(R) #1
+gap () () 
+          v27(R) = X64Lea32 : MR1 v30(R) v31(R)
+gap () (v26(R) = v32(-);) 
+          v26(1) = X64And32 v26(R) #19
+gap () (v28(R) = v33(-);) 
+          v28(1) = X64Sar32 v28(R) #1
+gap () () 
+          v31(R) = X64Lea32 : MR1 v34(R) v35(R)
+gap () (v30(R) = v36(-);) 
+          v30(1) = X64And32 v30(R) #18
+gap () (v32(R) = v37(-);) 
+          v32(1) = X64Sar32 v32(R) #1
+gap () () 
+          v35(R) = X64Lea32 : MR1 v38(R) v39(R)
+gap () (v34(R) = v40(-);) 
+          v34(1) = X64And32 v34(R) #17
+gap () (v36(R) = v41(-);) 
+          v36(1) = X64Sar32 v36(R) #1
+gap () () 
+          v39(R) = X64Lea32 : MR1I v42(R) v42(R) #17
+gap () (v38(R) = v43(-);) 
+          v38(1) = X64And32 v38(R) #16
+gap () (v40(R) = v44(-);) 
+          v40(1) = X64Sar32 v40(R) #1
+gap () (v43(R) = v45(-);) 
+          v43(1) = X64Sar32 v43(R) #1
+gap () () 
+          v42(R) = X64Lea32 : MRI v5(R) #-61
+gap () (v5(R) = v46(-);) 
+          v5(1) = X64And32 v5(R) #25
+gap () (v46(R) = v47(-);) 
+          v46(1) = X64Sar32 v46(R) #1
+gap () () 
+          X64Test32 && deoptimize if not equal v10 #1 #0 [immediate:0] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v49 #1 #1 [immediate:1] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v47 #1 #2 [immediate:2] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v17 #1 #3 [immediate:3] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v21 #1 #4 [immediate:4] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v25 #1 #5 [immediate:5] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v29 #1 #6 [immediate:6] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v33 #1 #7 [immediate:7] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v37 #1 #8 [immediate:8] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v41 #1 #9 [immediate:9] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v44 #1 #10 [immediate:10] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          X64Test32 && deoptimize if not equal v45 #1 #11 [immediate:11] v48(-) v45(-) v44(-) v41(-) v37(-) v33(-) v29(-) v25(-) v21(-) v17(-) v47(-) v49(-) v10(-) v50(S) v45(-)
+gap () () 
+          ArchJmp [immediate:12]
+gap (v51(-) = [rax|R|t];) () 
+          ArchJmp [immediate:13]
+gap () ([rbx|R|w64] = v53(-); [rax|R|w64] = v54(-); [rsi|R|t] = v55(-);) 
+          [rax|R|t] = ArchCallCodeObject [immediate:14] #-1 #12 [immediate:15] v48(S) v45(S) v44(S) v41(S) v37(S) v33(S) v29(S) v25(S) v21(S) v17(S) v47(S) v49(S) v10(S) v50(S) [rbx|R|w64] [rax|R|w64] [rsi|R|t]
+gap () () 
+          X64Push v52(-)
+gap () () 
+          v52(R) = ArchStackCheckOffset
+gap () () 
+          [constant:53] = ArchNop
+gap () () 
+          [constant:55] = ArchNop
+gap () () 
+          ArchStackPointerGreaterThan : Root && branch if unsigned greater than #80 [immediate:16] [immediate:17]
+gap (v50(-) = [rsi|R|t];) () 
+          [constant:54] = ArchNop
+gap (v49(-) = [stack:-12|t];) () 
+          [rsi|R|t] = ArchNop
+gap (v48(-) = [stack:-1|t];) () 
+          [stack:-12|t] = ArchNop
+gap (v10(-) = [stack:-13|t];) () 
+          [stack:-1|t] = ArchNop
+gap (v17(-) = [stack:-10|t];) () 
+          [stack:-13|t] = ArchNop
+gap (v21(-) = [stack:-9|t];) () 
+          [stack:-10|t] = ArchNop
+gap (v25(-) = [stack:-8|t];) () 
+          [stack:-9|t] = ArchNop
+gap (v29(-) = [stack:-7|t];) () 
+          [stack:-8|t] = ArchNop
+gap (v33(-) = [stack:-6|t];) () 
+          [stack:-7|t] = ArchNop
+gap (v37(-) = [stack:-5|t];) () 
+          [stack:-6|t] = ArchNop
+gap (v41(-) = [stack:-4|t];) () 
+          [stack:-5|t] = ArchNop
+gap (v44(-) = [stack:-3|t];) () 
+          [stack:-4|t] = ArchNop
+gap (v45(-) = [stack:-2|t];) () 
+          [stack:-3|t] = ArchNop
+gap (v47(-) = [stack:-11|t];) () 
+          [stack:-2|t] = ArchNop
+gap () () 
+          [stack:-11|t] = ArchNop
+--- Raw source ---
+(p_rdx, p_rcx, p_rdi, p_r8, p_r9, p_r11, p_r12, p_r14, p_r15, p_rax, p_rbx, p_rsi){
+    p_rdx &= 0x10; // 83e210   andl rdx,0x10
+    p_rcx &= 0x11; // 83e111   andl rcx,0x11
+    p_rdi &= 0x12; // 83e712   andl rdi,0x12
+    p_r8  &= 0x13; // 4183e013 andl r8, 0x13
+    p_r9  &= 0x14; // 4183e114 andl r9, 0x14
+    p_r11 &= 0x15; // 4183e315 andl r11,0x15
+    p_r12 &= 0x16; // 4183e416 andl r12,0x16
+    p_r14 &= 0x17; // 4183e617 andl r14,0x17
+    p_r15 &= 0x18; // 4183e718 andl r15,0x18
+    p_rax &= 0x19; // 83e019   andl rax,0x19
+    p_rbx &= 0x20; // dead code
+    p_rsi &= 0x21; // 83e621   andl rsi,0x21 
+    //8d58c3 leal rbx,[rax-0x3d]
+    p_rbx = p_rax - 0x3d;
+    let i0  = p_rbx + 0x11;
+    return i0 + p_rbx + p_rdx + p_rcx + p_rdi + p_r8 + p_r9 + p_r11 + p_r12 + p_r14 + p_r15 + p_rax + p_rsi;
+}
+
+
+--- Optimized code ---
+optimization_id = 0
+source_position = 16
+kind = TURBOFAN
+name = jsc58c3
+stack_slots = 6
+compiler = turbofan
+address = 0x17b900084001
+
+Instructions (size = 956)
+0x17b900084040     0  488d1df9ffffff REX.W leaq rbx,[rip+0xfffffff9]
+0x17b900084047     7  483bd9         REX.W cmpq rbx,rcx
+0x17b90008404a     a  7418           jz 0x17b900084064  <+0x24>
+0x17b90008404c     c  48ba6c00000000000000 REX.W movq rdx,0x6c
+0x17b900084056    16  49ba808386a76a7f0000 REX.W movq r10,0x7f6aa7868380  (Abort)    ;; off heap target
+0x17b900084060    20  41ffd2         call r10
+0x17b900084063    23  cc             int3l
+0x17b900084064    24  8b59d0         movl rbx,[rcx-0x30]
+0x17b900084067    27  4903dd         REX.W addq rbx,r13
+0x17b90008406a    2a  f6430701       testb [rbx+0x7],0x1
+0x17b90008406e    2e  740d           jz 0x17b90008407d  <+0x3d>
+0x17b900084070    30  49ba00a679a76a7f0000 REX.W movq r10,0x7f6aa779a600  (CompileLazyDeoptimizedCode)    ;; off heap target
+0x17b90008407a    3a  41ffe2         jmp r10
+0x17b90008407d    3d  55             push rbp
+0x17b90008407e    3e  4889e5         REX.W movq rbp,rsp
+0x17b900084081    41  56             push rsi
+0x17b900084082    42  57             push rdi
+0x17b900084083    43  50             push rax
+0x17b900084084    44  4883ec08       REX.W subq rsp,0x8
+0x17b900084088    48  488975e0       REX.W movq [rbp-0x20],rsi
+0x17b90008408c    4c  493b6550       REX.W cmpq rsp,[r13+0x50] (external value (StackGuard::address_of_jslimit()))
+0x17b900084090    50  0f86d1020000   jna 0x17b900084367  <+0x327>
+0x17b900084096    56  488b5518       REX.W movq rdx,[rbp+0x18]
+0x17b90008409a    5a  f6c201         testb rdx,0x1
+0x17b90008409d    5d  0f85fb020000   jnz 0x17b90008439e  <+0x35e>
+0x17b9000840a3    63  488b4d20       REX.W movq rcx,[rbp+0x20]
+0x17b9000840a7    67  f6c101         testb rcx,0x1
+0x17b9000840aa    6a  0f85f5020000   jnz 0x17b9000843a5  <+0x365>
+0x17b9000840b0    70  488b7d28       REX.W movq rdi,[rbp+0x28]
+0x17b9000840b4    74  40f6c701       testb rdi,0x1
+0x17b9000840b8    78  0f85ee020000   jnz 0x17b9000843ac  <+0x36c>
+0x17b9000840be    7e  4c8b4530       REX.W movq r8,[rbp+0x30]
+0x17b9000840c2    82  41f6c001       testb r8,0x1
+0x17b9000840c6    86  0f85e7020000   jnz 0x17b9000843b3  <+0x373>
+0x17b9000840cc    8c  4c8b4d38       REX.W movq r9,[rbp+0x38]
+0x17b9000840d0    90  41f6c101       testb r9,0x1
+0x17b9000840d4    94  0f85e0020000   jnz 0x17b9000843ba  <+0x37a>
+0x17b9000840da    9a  4c8b5d40       REX.W movq r11,[rbp+0x40]
+0x17b9000840de    9e  41f6c301       testb r11,0x1
+0x17b9000840e2    a2  0f85d9020000   jnz 0x17b9000843c1  <+0x381>
+0x17b9000840e8    a8  4c8b6548       REX.W movq r12,[rbp+0x48]
+0x17b9000840ec    ac  41f6c401       testb r12,0x1
+0x17b9000840f0    b0  0f85d2020000   jnz 0x17b9000843c8  <+0x388>
+0x17b9000840f6    b6  4c8b7550       REX.W movq r14,[rbp+0x50]
+0x17b9000840fa    ba  41f6c601       testb r14,0x1
+0x17b9000840fe    be  0f85cb020000   jnz 0x17b9000843cf  <+0x38f>
+0x17b900084104    c4  4c8b7d58       REX.W movq r15,[rbp+0x58]
+0x17b900084108    c8  41f6c701       testb r15,0x1
+0x17b90008410c    cc  0f85c4020000   jnz 0x17b9000843d6  <+0x396>
+0x17b900084112    d2  488b4560       REX.W movq rax,[rbp+0x60]
+0x17b900084116    d6  a801           test al,0x1
+0x17b900084118    d8  0f85bf020000   jnz 0x17b9000843dd  <+0x39d>
+0x17b90008411e    de  488b5d68       REX.W movq rbx,[rbp+0x68]
+0x17b900084122    e2  f6c301         testb rbx,0x1
+0x17b900084125    e5  0f85b9020000   jnz 0x17b9000843e4  <+0x3a4>
+0x17b90008412b    eb  488b7570       REX.W movq rsi,[rbp+0x70]
+0x17b90008412f    ef  40f6c601       testb rsi,0x1
+0x17b900084133    f3  0f85b2020000   jnz 0x17b9000843eb  <+0x3ab>
+0x17b900084139    f9  d1f8           sarl rax, 1
+0x17b90008413b    fb  83e019         andl rax,0x19
+0x17b90008413e    fe  8d58c3         leal rbx,[rax-0x3d]
+0x17b900084141   101  49ba0000000001000000 REX.W movq r10,0x100000000
+0x17b90008414b   10b  4c3bd3         REX.W cmpq r10,rbx
+0x17b90008414e   10e  7715           ja 0x17b900084165  <+0x125>
+0x17b900084150   110  48ba0200000000000000 REX.W movq rdx,0x2
+0x17b90008415a   11a  4c8b15f7feffff REX.W movq r10,[rip+0xfffffef7]
+0x17b900084161   121  41ffd2         call r10
+0x17b900084164   124  cc             int3l
+0x17b900084165   125  d1fa           sarl rdx, 1
+0x17b900084167   127  d1f9           sarl rcx, 1
+0x17b900084169   129  83e210         andl rdx,0x10
+0x17b90008416c   12c  8d5c1b11       leal rbx,[rbx+rbx*1+0x11]
+0x17b900084170   130  4c8b15ccffffff REX.W movq r10,[rip+0xffffffcc]
+0x17b900084177   137  4c3bd3         REX.W cmpq r10,rbx
+0x17b90008417a   13a  7712           ja 0x17b90008418e  <+0x14e>
+0x17b90008417c   13c  488b15cfffffff REX.W movq rdx,[rip+0xffffffcf]
+0x17b900084183   143  4c8b15cefeffff REX.W movq r10,[rip+0xfffffece]
+0x17b90008418a   14a  41ffd2         call r10
+0x17b90008418d   14d  cc             int3l
+0x17b90008418e   14e  d1ff           sarl rdi, 1
+0x17b900084190   150  83e111         andl rcx,0x11
+0x17b900084193   153  03d3           addl rdx,rbx
+0x17b900084195   155  4c8b15a7ffffff REX.W movq r10,[rip+0xffffffa7]
+0x17b90008419c   15c  4c3bd2         REX.W cmpq r10,rdx
+0x17b90008419f   15f  7712           ja 0x17b9000841b3  <+0x173>
+0x17b9000841a1   161  488b15aaffffff REX.W movq rdx,[rip+0xffffffaa]
+0x17b9000841a8   168  4c8b15a9feffff REX.W movq r10,[rip+0xfffffea9]
+0x17b9000841af   16f  41ffd2         call r10
+0x17b9000841b2   172  cc             int3l
+0x17b9000841b3   173  41d1f8         sarl r8, 1
+0x17b9000841b6   176  83e712         andl rdi,0x12
+0x17b9000841b9   179  03d1           addl rdx,rcx
+0x17b9000841bb   17b  4c8b1581ffffff REX.W movq r10,[rip+0xffffff81]
+0x17b9000841c2   182  4c3bd2         REX.W cmpq r10,rdx
+0x17b9000841c5   185  7712           ja 0x17b9000841d9  <+0x199>
+0x17b9000841c7   187  488b1584ffffff REX.W movq rdx,[rip+0xffffff84]
+0x17b9000841ce   18e  4c8b1583feffff REX.W movq r10,[rip+0xfffffe83]
+0x17b9000841d5   195  41ffd2         call r10
+0x17b9000841d8   198  cc             int3l
+0x17b9000841d9   199  41d1f9         sarl r9, 1
+0x17b9000841dc   19c  4183e013       andl r8,0x13
+0x17b9000841e0   1a0  03d7           addl rdx,rdi
+0x17b9000841e2   1a2  4c8b155affffff REX.W movq r10,[rip+0xffffff5a]
+0x17b9000841e9   1a9  4c3bd2         REX.W cmpq r10,rdx
+0x17b9000841ec   1ac  7712           ja 0x17b900084200  <+0x1c0>
+0x17b9000841ee   1ae  488b155dffffff REX.W movq rdx,[rip+0xffffff5d]
+0x17b9000841f5   1b5  4c8b155cfeffff REX.W movq r10,[rip+0xfffffe5c]
+0x17b9000841fc   1bc  41ffd2         call r10
+0x17b9000841ff   1bf  cc             int3l
+0x17b900084200   1c0  41d1fb         sarl r11, 1
+0x17b900084203   1c3  4183e114       andl r9,0x14
+0x17b900084207   1c7  4103d0         addl rdx,r8
+0x17b90008420a   1ca  4c8b1532ffffff REX.W movq r10,[rip+0xffffff32]
+0x17b900084211   1d1  4c3bd2         REX.W cmpq r10,rdx
+0x17b900084214   1d4  7712           ja 0x17b900084228  <+0x1e8>
+0x17b900084216   1d6  488b1535ffffff REX.W movq rdx,[rip+0xffffff35]
+0x17b90008421d   1dd  4c8b1534feffff REX.W movq r10,[rip+0xfffffe34]
+0x17b900084224   1e4  41ffd2         call r10
+0x17b900084227   1e7  cc             int3l
+0x17b900084228   1e8  41d1fc         sarl r12, 1
+0x17b90008422b   1eb  4183e315       andl r11,0x15
+0x17b90008422f   1ef  4103d1         addl rdx,r9
+0x17b900084232   1f2  4c8b150affffff REX.W movq r10,[rip+0xffffff0a]
+0x17b900084239   1f9  4c3bd2         REX.W cmpq r10,rdx
+0x17b90008423c   1fc  7712           ja 0x17b900084250  <+0x210>
+0x17b90008423e   1fe  488b150dffffff REX.W movq rdx,[rip+0xffffff0d]
+0x17b900084245   205  4c8b150cfeffff REX.W movq r10,[rip+0xfffffe0c]
+0x17b90008424c   20c  41ffd2         call r10
+0x17b90008424f   20f  cc             int3l
+0x17b900084250   210  41d1fe         sarl r14, 1
+0x17b900084253   213  4183e416       andl r12,0x16
+0x17b900084257   217  4103d3         addl rdx,r11
+0x17b90008425a   21a  4c8b15e2feffff REX.W movq r10,[rip+0xfffffee2]
+0x17b900084261   221  4c3bd2         REX.W cmpq r10,rdx
+0x17b900084264   224  7712           ja 0x17b900084278  <+0x238>
+0x17b900084266   226  488b15e5feffff REX.W movq rdx,[rip+0xfffffee5]
+0x17b90008426d   22d  4c8b15e4fdffff REX.W movq r10,[rip+0xfffffde4]
+0x17b900084274   234  41ffd2         call r10
+0x17b900084277   237  cc             int3l
+0x17b900084278   238  41d1ff         sarl r15, 1
+0x17b90008427b   23b  4183e617       andl r14,0x17
+0x17b90008427f   23f  4401e2         addl rdx,r12
+0x17b900084282   242  4c8b15bafeffff REX.W movq r10,[rip+0xfffffeba]
+0x17b900084289   249  4c3bd2         REX.W cmpq r10,rdx
+0x17b90008428c   24c  7712           ja 0x17b9000842a0  <+0x260>
+0x17b90008428e   24e  488b15bdfeffff REX.W movq rdx,[rip+0xfffffebd]
+0x17b900084295   255  4c8b15bcfdffff REX.W movq r10,[rip+0xfffffdbc]
+0x17b90008429c   25c  41ffd2         call r10
+0x17b90008429f   25f  cc             int3l
+0x17b9000842a0   260  4183e718       andl r15,0x18
+0x17b9000842a4   264  4103d6         addl rdx,r14
+0x17b9000842a7   267  4c8b1595feffff REX.W movq r10,[rip+0xfffffe95]
+0x17b9000842ae   26e  4c3bd2         REX.W cmpq r10,rdx
+0x17b9000842b1   271  7712           ja 0x17b9000842c5  <+0x285>
+0x17b9000842b3   273  488b1598feffff REX.W movq rdx,[rip+0xfffffe98]
+0x17b9000842ba   27a  4c8b1597fdffff REX.W movq r10,[rip+0xfffffd97]
+0x17b9000842c1   281  41ffd2         call r10
+0x17b9000842c4   284  cc             int3l
+0x17b9000842c5   285  d1fe           sarl rsi, 1
+0x17b9000842c7   287  4103d7         addl rdx,r15
+0x17b9000842ca   28a  4c8b1572feffff REX.W movq r10,[rip+0xfffffe72]
+0x17b9000842d1   291  4c3bd2         REX.W cmpq r10,rdx
+0x17b9000842d4   294  7712           ja 0x17b9000842e8  <+0x2a8>
+0x17b9000842d6   296  488b1575feffff REX.W movq rdx,[rip+0xfffffe75]
+0x17b9000842dd   29d  4c8b1574fdffff REX.W movq r10,[rip+0xfffffd74]
+0x17b9000842e4   2a4  41ffd2         call r10
+0x17b9000842e7   2a7  cc             int3l
+0x17b9000842e8   2a8  83e621         andl rsi,0x21
+0x17b9000842eb   2ab  03d0           addl rdx,rax
+0x17b9000842ed   2ad  4c8b154ffeffff REX.W movq r10,[rip+0xfffffe4f]
+0x17b9000842f4   2b4  4c3bd2         REX.W cmpq r10,rdx
+0x17b9000842f7   2b7  7712           ja 0x17b90008430b  <+0x2cb>
+0x17b9000842f9   2b9  488b1552feffff REX.W movq rdx,[rip+0xfffffe52]
+0x17b900084300   2c0  4c8b1551fdffff REX.W movq r10,[rip+0xfffffd51]
+0x17b900084307   2c7  41ffd2         call r10
+0x17b90008430a   2ca  cc             int3l
+0x17b90008430b   2cb  03d6           addl rdx,rsi
+0x17b90008430d   2cd  4c8b152ffeffff REX.W movq r10,[rip+0xfffffe2f]
+0x17b900084314   2d4  4c3bd2         REX.W cmpq r10,rdx
+0x17b900084317   2d7  7712           ja 0x17b90008432b  <+0x2eb>
+0x17b900084319   2d9  488b1532feffff REX.W movq rdx,[rip+0xfffffe32]
+0x17b900084320   2e0  4c8b1531fdffff REX.W movq r10,[rip+0xfffffd31]
+0x17b900084327   2e7  41ffd2         call r10
+0x17b90008432a   2ea  cc             int3l
+0x17b90008432b   2eb  8d0412         leal rax,[rdx+rdx*1]
+0x17b90008432e   2ee  4c8b150efeffff REX.W movq r10,[rip+0xfffffe0e]
+0x17b900084335   2f5  4c3bd0         REX.W cmpq r10,rax
+0x17b900084338   2f8  7712           ja 0x17b90008434c  <+0x30c>
+0x17b90008433a   2fa  488b1511feffff REX.W movq rdx,[rip+0xfffffe11]
+0x17b900084341   301  4c8b1510fdffff REX.W movq r10,[rip+0xfffffd10]
+0x17b900084348   308  41ffd2         call r10
+0x17b90008434b   30b  cc             int3l
+0x17b90008434c   30c  488b4de8       REX.W movq rcx,[rbp-0x18]
+0x17b900084350   310  488be5         REX.W movq rsp,rbp
+0x17b900084353   313  5d             pop rbp
+0x17b900084354   314  4883f90c       REX.W cmpq rcx,0xc
+0x17b900084358   318  7f03           jg 0x17b90008435d  <+0x31d>
+0x17b90008435a   31a  c26800         ret 0x68
+0x17b90008435d   31d  415a           pop r10
+0x17b90008435f   31f  488d64cc08     REX.W leaq rsp,[rsp+rcx*8+0x8]
+0x17b900084364   324  4152           push r10
+0x17b900084366   326  c3             retl
+0x17b900084367   327  48ba1001000000000000 REX.W movq rdx,0x110
+0x17b900084371   331  52             push rdx
+0x17b900084372   332  48bb608ec1a86a7f0000 REX.W movq rbx,0x7f6aa8c18e60    ;; external reference (Runtime::StackGuardWithGap)
+0x17b90008437c   33c  b801000000     movl rax,0x1
+0x17b900084381   341  48bee1302c08b9170000 REX.W movq rsi,0x17b9082c30e1    ;; object: 0x17b9082c30e1 <NativeContext[243]>
+0x17b90008438b   34b  49bae006a3a76a7f0000 REX.W movq r10,0x7f6aa7a306e0  (CEntry_Return1_DontSaveFPRegs_ArgvOnStack_NoBuiltinExit)    ;; off heap target
+0x17b900084395   355  41ffd2         call r10
+0x17b900084398   358  e9f9fcffff     jmp 0x17b900084096  <+0x56>
+0x17b90008439d   35d  90             nop
+0x17b90008439e   35e  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843a5   365  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843ac   36c  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843b3   373  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843ba   37a  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843c1   381  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843c8   388  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843cf   38f  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843d6   396  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843dd   39d  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843e4   3a4  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843eb   3ab  41ff95f8360000 call [r13+0x36f8]
+0x17b9000843f2   3b2  41ff9510370000 call [r13+0x3710]
+0x17b9000843f9   3b9  0f1f00         nop
+
+Source positions:
+ pc offset  position
+       332        16
+
+Inlined functions (count = 0)
+
+Deoptimization Input Data (deopt points = 13)
+ index  bytecode-offset    pc
+     0                2    NA 
+     1                2    NA 
+     2                2    NA 
+     3                2    NA 
+     4                2    NA 
+     5                2    NA 
+     6                2    NA 
+     7                2    NA 
+     8                2    NA 
+     9                2    NA 
+    10                2    NA 
+    11                2    NA 
+    12               -1   358 
+
+Safepoints (size = 21)
+0x17b900084398     358   3b2  100000 (sp -> fp)      12
+
+RelocInfo (size = 11)
+0x17b900084058  off heap target
+0x17b900084072  off heap target
+0x17b900084374  external reference (Runtime::StackGuardWithGap)  (0x7f6aa8c18e60)
+0x17b900084383  full embedded object  (0x17b9082c30e1 <NativeContext[243]>)
+0x17b90008438d  off heap target
+
+--- End code ---
+gap () () 
+          ArchNop
+gap () ([rax|R|w64] = v0(-);) 
+          ArchRet #0 [rax|R|w64]
+gap () () 
+          [constant:0] = ArchNop
+gap () (v10 = v5(-);) 
+          ArchJmp [immediate:0]
+gap () () 
+          ArchJmp [immediate:1]
+gap (v1(-) = [rax|R|t];) () 
+          ArchJmp [immediate:2]
+gap () ([rbx|R|w64] = v6(-); [rax|R|w64] = v7(-); [rsi|R|t] = v8(-);) 
+          [rax|R|t] = ArchCallCodeObject [immediate:3] #-1 #0 v2(S) v3(S) v4(S) #-41 v5(S) [rbx|R|w64] [rax|R|w64] [rsi|R|t]
+gap () () 
+          [constant:6] = ArchNop
+gap () () 
+          [constant:8] = ArchNop
+gap () () 
+          ArchStackPointerGreaterThan : Root && branch if unsigned greater than #80 [immediate:4] [immediate:5]
+gap () (v5 = v9(-);) 
+          v5(1) = ArchNop v5
+gap () (v9(R) = v10(-);) 
+          v9(1) = X64Add32 && deoptimize if overflow v9(R) #1 #1 v2(S) v3(-) v4(S) #-41 v10(-)
+gap () () 
+          X64Cmp32 && branch if signed less than v10 #65536 [immediate:6] [immediate:7]
+gap () (v10 = v11(-);) 
+          ArchJmp [immediate:8]
+gap () () 
+          ArchJmp [immediate:9]
+gap (v12(-) = [rax|R|t];) () 
+          ArchJmp [immediate:10]
+gap () ([rbx|R|w64] = v13(-); [rax|R|w64] = v7(-); [rsi|R|t] = v14(-);) 
+          [rax|R|t] = ArchCallCodeObject [immediate:11] #-1 #2 v2(S) v3(S) v4(S) #-41 v11(S) [rbx|R|w64] [rax|R|w64] [rsi|R|t]
+gap () () 
+          [constant:13] = ArchNop
+gap () () 
+          [constant:14] = ArchNop
+gap () () 
+          ArchStackPointerGreaterThan : Root && branch if unsigned greater than #80 [immediate:12] [immediate:13]
+gap () (v11 = v15(-);) 
+          v11(1) = ArchNop v11
+gap () (v15(R) = v16(-);) 
+          v15(1) = X64Add32 && deoptimize if overflow v15(R) #1 #3 v2(S) v3(-) v4(S) #-41 v17(-)
+gap () (v16(R) = v17(-);) 
+          v16(1) = X64Sar32 v16(R) #1
+gap () ([rax|R|t] = v18(-);) 
+          ArchRet #0 [rax|R|t]
+gap () () 
+          X64Cmp32 && branch if signed less than v17 [immediate:14] [immediate:15] [immediate:16]
+gap () () 
+          X64Test32 && deoptimize if not equal v17 #1 #4 v2(S) v3(-) v4(S) v18(-) v17(-) [immediate:17]
+gap (v2(-) = [stack:3|t];) () 
+          [constant:7] = ArchNop
+gap (v4(-) = [rsi|R|t];) () 
+          [stack:3|t] = ArchNop
+gap (v18(-) = [stack:7|t];) () 
+          [rsi|R|t] = ArchNop
+gap (v3(-) = [stack:-1|t];) () 
+          [stack:7|t] = ArchNop
+gap (v17(-) = [stack:8|t];) () 
+          [stack:-1|t] = ArchNop
+gap () () 
+          [stack:8|t] = ArchNop
+--- Raw source ---
+function jsc58c3(p_rdx, p_rcx, p_rdi, p_r8, p_r9, p_r11, p_r12, p_r14, p_r15, p_rax, p_rbx, p_rsi){
+    p_rdx &= 0x10; // 83e210   andl rdx,0x10
+    p_rcx &= 0x11; // 83e111   andl rcx,0x11
+    p_rdi &= 0x12; // 83e712   andl rdi,0x12
+    p_r8  &= 0x13; // 4183e013 andl r8, 0x13
+    p_r9  &= 0x14; // 4183e114 andl r9, 0x14
+    p_r11 &= 0x15; // 4183e315 andl r11,0x15
+    p_r12 &= 0x16; // 4183e416 andl r12,0x16
+    p_r14 &= 0x17; // 4183e617 andl r14,0x17
+    p_r15 &= 0x18; // 4183e718 andl r15,0x18
+    p_rax &= 0x19; // 83e019   andl rax,0x19
+    p_rbx &= 0x20; // dead code
+    p_rsi &= 0x21; // 83e621   andl rsi,0x21 
+    //8d58c3 leal rbx,[rax-0x3d]
+    p_rbx = p_rax - 0x3d;
+    let i0  = p_rbx + 0x11;
+    return i0 + p_rbx + p_rdx + p_rcx + p_rdi + p_r8 + p_r9 + p_r11 + p_r12 + p_r14 + p_r15 + p_rax + p_rsi;
+}
+
+for(let i = 0; i < 0x10000; i++)
+{
+    jsc58c3(0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xc10, 0xc11);
+}
+
+
+--- Optimized code ---
+optimization_id = 1
+source_position = 0
+kind = TURBOFAN
+stack_slots = 24
+compiler = turbofan
+address = 0x17b900084421
+
+Instructions (size = 380)
+0x17b900084460     0  488d1df9ffffff REX.W leaq rbx,[rip+0xfffffff9]
+0x17b900084467     7  483bd9         REX.W cmpq rbx,rcx
+0x17b90008446a     a  7418           jz 0x17b900084484  <+0x24>
+0x17b90008446c     c  48ba6c00000000000000 REX.W movq rdx,0x6c
+0x17b900084476    16  49ba808386a76a7f0000 REX.W movq r10,0x7f6aa7868380  (Abort)    ;; off heap target
+0x17b900084480    20  41ffd2         call r10
+0x17b900084483    23  cc             int3l
+0x17b900084484    24  8b59d0         movl rbx,[rcx-0x30]
+0x17b900084487    27  4903dd         REX.W addq rbx,r13
+0x17b90008448a    2a  f6430701       testb [rbx+0x7],0x1
+0x17b90008448e    2e  740d           jz 0x17b90008449d  <+0x3d>
+0x17b900084490    30  49ba00a679a76a7f0000 REX.W movq r10,0x7f6aa779a600  (CompileLazyDeoptimizedCode)    ;; off heap target
+0x17b90008449a    3a  41ffe2         jmp r10
+0x17b90008449d    3d  55             push rbp
+0x17b90008449e    3e  4889e5         REX.W movq rbp,rsp
+0x17b9000844a1    41  56             push rsi
+0x17b9000844a2    42  57             push rdi
+0x17b9000844a3    43  50             push rax
+0x17b9000844a4    44  48ba4200000000000000 REX.W movq rdx,0x42
+0x17b9000844ae    4e  4c8b15c3ffffff REX.W movq r10,[rip+0xffffffc3]
+0x17b9000844b5    55  41ffd2         call r10
+0x17b9000844b8    58  cc             int3l
+0x17b9000844b9    59  4883ec10       REX.W subq rsp,0x10
+0x17b9000844bd    5d  4889b558ffffff REX.W movq [rbp-0xa8],rsi
+0x17b9000844c4    64  488b55c8       REX.W movq rdx,[rbp-0x38]
+0x17b9000844c8    68  f6c201         testb rdx,0x1
+0x17b9000844cb    6b  0f85e8000000   jnz 0x17b9000845b9  <+0x159>
+0x17b9000844d1    71  81fa00000200   cmpl rdx,0x20000
+0x17b9000844d7    77  0f8c1f000000   jl 0x17b9000844fc  <+0x9c>
+0x17b9000844dd    7d  488b45d0       REX.W movq rax,[rbp-0x30]
+0x17b9000844e1    81  488b4de8       REX.W movq rcx,[rbp-0x18]
+0x17b9000844e5    85  488be5         REX.W movq rsp,rbp
+0x17b9000844e8    88  5d             pop rbp
+0x17b9000844e9    89  4883f900       REX.W cmpq rcx,0x0
+0x17b9000844ed    8d  7f03           jg 0x17b9000844f2  <+0x92>
+0x17b9000844ef    8f  c20800         ret 0x8
+0x17b9000844f2    92  415a           pop r10
+0x17b9000844f4    94  488d64cc08     REX.W leaq rsp,[rsp+rcx*8+0x8]
+0x17b9000844f9    99  4152           push r10
+0x17b9000844fb    9b  c3             retl
+0x17b9000844fc    9c  488bca         REX.W movq rcx,rdx
+0x17b9000844ff    9f  d1f9           sarl rcx, 1
+0x17b900084501    a1  83c101         addl rcx,0x1
+0x17b900084504    a4  0f80b6000000   jo 0x17b9000845c0  <+0x160>
+0x17b90008450a    aa  493b6550       REX.W cmpq rsp,[r13+0x50] (external value (StackGuard::address_of_jslimit()))
+0x17b90008450e    ae  0f870f000000   ja 0x17b900084523  <+0xc3>
+0x17b900084514    b4  e939000000     jmp 0x17b900084552  <+0xf2>
+0x17b900084519    b9  0f1f8000000000 nop
+0x17b900084520    c0  488bca         REX.W movq rcx,rdx
+0x17b900084523    c3  81f900000100   cmpl rcx,0x10000
+0x17b900084529    c9  0f8d17000000   jge 0x17b900084546  <+0xe6>
+0x17b90008452f    cf  488bd1         REX.W movq rdx,rcx
+0x17b900084532    d2  83c201         addl rdx,0x1
+0x17b900084535    d5  0f808c000000   jo 0x17b9000845c7  <+0x167>
+0x17b90008453b    db  493b6550       REX.W cmpq rsp,[r13+0x50] (external value (StackGuard::address_of_jslimit()))
+0x17b90008453f    df  77df           ja 0x17b900084520  <+0xc0>
+0x17b900084541    e1  e942000000     jmp 0x17b900084588  <+0x128>
+0x17b900084546    e6  48b8aeffffffffffffff REX.W movq rax,0xffffffffffffffae
+0x17b900084550    f0  eb8f           jmp 0x17b9000844e1  <+0x81>
+0x17b900084552    f2  48898d50ffffff REX.W movq [rbp-0xb0],rcx
+0x17b900084559    f9  33c0           xorl rax,rax
+0x17b90008455b    fb  48bb9088c1a86a7f0000 REX.W movq rbx,0x7f6aa8c18890    ;; external reference (Runtime::StackGuard)
+0x17b900084565   105  48bee1302c08b9170000 REX.W movq rsi,0x17b9082c30e1    ;; object: 0x17b9082c30e1 <NativeContext[243]>
+0x17b90008456f   10f  488bd0         REX.W movq rdx,rax
+0x17b900084572   112  49bae006a3a76a7f0000 REX.W movq r10,0x7f6aa7a306e0  (CEntry_Return1_DontSaveFPRegs_ArgvOnStack_NoBuiltinExit)    ;; off heap target
+0x17b90008457c   11c  41ffd2         call r10
+0x17b90008457f   11f  488b8d50ffffff REX.W movq rcx,[rbp-0xb0]
+0x17b900084586   126  eb9b           jmp 0x17b900084523  <+0xc3>
+0x17b900084588   128  48899550ffffff REX.W movq [rbp-0xb0],rdx
+0x17b90008458f   12f  488b1dc7ffffff REX.W movq rbx,[rip+0xffffffc7]
+0x17b900084596   136  48bee1302c08b9170000 REX.W movq rsi,0x17b9082c30e1    ;; object: 0x17b9082c30e1 <NativeContext[243]>
+0x17b9000845a0   140  33c0           xorl rax,rax
+0x17b9000845a2   142  4c8b15cbffffff REX.W movq r10,[rip+0xffffffcb]
+0x17b9000845a9   149  41ffd2         call r10
+0x17b9000845ac   14c  488b9550ffffff REX.W movq rdx,[rbp-0xb0]
+0x17b9000845b3   153  e968ffffff     jmp 0x17b900084520  <+0xc0>
+0x17b9000845b8   158  90             nop
+0x17b9000845b9   159  41ff95f8360000 call [r13+0x36f8]
+0x17b9000845c0   160  41ff95f8360000 call [r13+0x36f8]
+0x17b9000845c7   167  41ff95f8360000 call [r13+0x36f8]
+0x17b9000845ce   16e  41ff9510370000 call [r13+0x3710]
+0x17b9000845d5   175  41ff9510370000 call [r13+0x3710]
+
+Source positions:
+ pc offset  position
+        f2         0
+
+Inlined functions (count = 1)
+ 0x17b9082d27d5 <SharedFunctionInfo jsc58c3>
+
+Deoptimization Input Data (deopt points = 5)
+ index  bytecode-offset    pc
+     0               24    NA 
+     1              115    NA 
+     2              115    NA 
+     3              119   11f 
+     4              119   14c 
+
+Safepoints (size = 38)
+0x17b90008457f     11f   16e  010000000000000000000000 (sp -> fp)       3
+0x17b9000845ac     14c   175  010000000000000000000000 (sp -> fp)       4
+
+RelocInfo (size = 12)
+0x17b900084478  off heap target
+0x17b900084492  off heap target
+0x17b90008455d  external reference (Runtime::StackGuard)  (0x7f6aa8c18890)
+0x17b900084567  full embedded object  (0x17b9082c30e1 <NativeContext[243]>)
+0x17b900084574  off heap target
+0x17b900084598  full embedded object  (0x17b9082c30e1 <NativeContext[243]>)
+
+--- End code ---

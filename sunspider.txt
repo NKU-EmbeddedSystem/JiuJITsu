@@ -1,0 +1,31 @@
+                               benchmark:    score |  master_ |      % |
+===================================================+==========+========+
+                       3d-cube-sunspider[0m:   1700.5[0m |   1614.7[0m | [31m[1m  -5.0[0m |
+                      3d-morph-sunspider[0m:   1168.5[0m S   1098.8[0m | [31m[1m  -6.0[0m |
+                   3d-raytrace-sunspider[0m:   2006.0[0m |   1984.8[0m S   -1.1[0m |
+           access-binary-trees-sunspider[0m:    710.5[0m |    669.0[0m | [31m[1m  -5.8[0m |
+               access-fannkuch-sunspider[0m:    625.0[0m |    619.9[0m | [31m  -0.8[0m |
+                  access-nbody-sunspider[0m:   1082.5[0m |    993.2[0m | [31m[1m  -8.2[0m |
+                 access-nsieve-sunspider[0m:    627.0[0m |    600.8[0m | [31m[1m  -4.2[0m |
+      bitops-3bit-bits-in-byte-sunspider[0m:    365.5[0m |    341.9[0m | [31m[1m  -6.5[0m |
+           bitops-bits-in-byte-sunspider[0m:    622.0[0m |    586.0[0m | [31m[1m  -5.8[0m |
+            bitops-bitwise-and-sunspider[0m:    384.5[0m |    364.1[0m | [31m[1m  -5.3[0m |
+            bitops-nsieve-bits-sunspider[0m:    408.0[0m S    413.6[0m | [32m[1m   1.4[0m |
+         controlflow-recursive-sunspider[0m:    864.0[0m |    784.2[0m | [31m[1m  -9.2[0m |
+                    crypto-aes-sunspider[0m:   1628.0[0m |   1581.6[0m S [31m  -2.9[0m |
+                    crypto-md5-sunspider[0m:   1006.0[0m |    978.7[0m | [31m[1m  -2.7[0m |
+                   crypto-sha1-sunspider[0m:   1502.5[0m |   1378.9[0m | [31m[1m  -8.2[0m |
+             date-format-tofte-sunspider[0m:   1191.5[0m S   1159.7[0m | [31m[1m  -2.7[0m |
+             date-format-xparb-sunspider[0m:    866.0[0m |    847.1[0m | [31m  -2.2[0m |
+                   math-cordic-sunspider[0m:    989.5[0m |    941.9[0m | [31m[1m  -4.8[0m |
+             math-partial-sums-sunspider[0m:   2060.0[0m |   1976.0[0m | [31m[1m  -4.1[0m |
+            math-spectral-norm-sunspider[0m:    617.0[0m |    562.2[0m | [31m[1m  -8.9[0m |
+                    regexp-dna-sunspider[0m:    826.5[0m |    804.3[0m S   -2.7[0m |
+                 string-base64-sunspider[0m:   1819.5[0m S   1824.1[0m S    0.3[0m |
+                  string-fasta-sunspider[0m:   1222.0[0m |   1175.4[0m | [31m[1m  -3.8[0m |
+               string-tagcloud-sunspider[0m:   1521.0[0m |   1458.7[0m | [31m[1m  -4.1[0m |
+            string-unpack-code-sunspider[0m:   1439.0[0m |   1464.2[0m | [32m[1m   1.8[0m |
+         string-validate-input-sunspider[0m:   1623.5[0m |   1549.2[0m | [31m[1m  -4.6[0m |
+[1m                               SunSpider[0m: [1m 28876.0[0m | [1m 27772.9[0m | [31m[1m  -3.8[0m |
+---------------------------------------------------+----------+--------+
+Normally, sunspider requires 100 runs to get stable results.
