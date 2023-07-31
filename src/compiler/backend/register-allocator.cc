@@ -1,7 +1,7 @@
 // Copyright 2014 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//#define MY_DEBUG
+// #define MY_DEBUG
 
 #include "src/compiler/backend/register-allocator.h"
 
@@ -33,7 +33,6 @@ static constexpr int kFloat32Bit =
     RepresentationBit(MachineRepresentation::kFloat32);
 static constexpr int kSimd128Bit =
     RepresentationBit(MachineRepresentation::kSimd128);
-
 
 const InstructionBlock* GetContainingLoop(const InstructionSequence* sequence,
                                           const InstructionBlock* block) {
@@ -3756,11 +3755,14 @@ void LinearScanAllocator::AllocateRegisters() {
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
+  // should remove in release
   if (!code()->check_allocate(range->TopLevel()->vreg(), reg)) {
-    DEBUG_PRINT("unhandled branch\n");
+    assert(0 && "unhandled branch");
   }
+
   code()->v2p_regs[range->TopLevel()->vreg()] = reg;
-  DEBUG_PRINT("assign v%d to %s\n", range->TopLevel()->vreg(), RegisterName(reg));
+  DEBUG_PRINT("assign v%d to %s\n", range->TopLevel()->vreg(),
+              RegisterName(reg));
   data()->MarkAllocated(range->representation(), reg);
   range->set_assigned_register(reg);
   range->SetUseHints(reg);
@@ -4103,7 +4105,8 @@ bool LinearScanAllocator::TryAllocateFreeReg(
       current->RegisterFromBundle(&hint_reg);
 
   int reg;
-  if(!PickRegisterThatIsAvailableLongest(current, hint_reg, free_until_pos, reg))
+  if (!PickRegisterThatIsAvailableLongest(current, hint_reg, free_until_pos,
+                                          reg))
     return false;
 
   LifetimePosition pos = free_until_pos[reg];
@@ -4129,36 +4132,51 @@ bool LinearScanAllocator::TryAllocateFreeReg(
   TRACE("Assigning free reg %s to live range %d:%d\n", RegisterName(reg),
         current->TopLevel()->vreg(), current->relative_id());
 
-  if (!code()->check_allocate(current->TopLevel()->vreg(), reg))
-    return false;
+  if (!code()->check_allocate(current->TopLevel()->vreg(), reg)) return false;
 
   SetLiveRangeAssignedRegister(current, reg);
   return true;
 }
 
-extern bool get_imm(InstructionOperand* op, int32_t& imm, InstructionSequence* sequence_);
+extern bool get_imm(InstructionOperand* op, int32_t& imm,
+                    InstructionSequence* sequence_);
 
-int LinearScanAllocator::SplitRRange(LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
+int LinearScanAllocator::SplitRRange(
+    LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
   uint32_t virtual_reg = current->TopLevel()->vreg();
-  InstructionSequence *instructions = code();
-  UsePosition *register_use = current->NextRegisterPosition(current->Start());
-  std::vector<std::pair<uint8_t, std::pair<uint32_t, uint32_t>>> removing_pairs;
+  InstructionSequence* instructions = code();
+  UsePosition* register_use = current->NextRegisterPosition(current->Start());
+  std::vector<std::pair<uint8_t, std::pair<uint32_t, uint32_t>>>
+      removing_pairs1;
+  std::vector<std::pair<uint8_t, std::pair<uint32_t, uint32_t>>>
+      removing_pairs2;
 
   // erase the map and reverse map
-  auto erase_sensitive_map = [&](const int &output_reg, const int &input_reg, uint8_t scale) {
-    instructions->restricted_maps[scale][output_reg].erase(input_reg);
-    instructions->rev_restricted_maps[scale][input_reg].erase(output_reg);
-    removing_pairs.emplace_back(
-        std::pair<uint8_t, std::pair<uint32_t, uint32_t>>(scale, std::pair<uint32_t, uint32_t>(output_reg, input_reg)));
+  auto erase_sensitive_map1 = [&](const int& output_reg, const int& input_reg,
+                                  uint8_t scale) {
+    instructions->restricted_maps1[scale][output_reg].erase(input_reg);
+    instructions->rev_restricted_maps1[scale][input_reg].erase(output_reg);
+    removing_pairs1.emplace_back(
+        std::pair<uint8_t, std::pair<uint32_t, uint32_t>>(
+            scale, std::pair<uint32_t, uint32_t>(output_reg, input_reg)));
+  };
+  auto erase_sensitive_map2 = [&](const int& output_reg, const int& input_reg,
+                                  uint8_t scale) {
+    instructions->restricted_maps2[scale][output_reg].erase(input_reg);
+    instructions->rev_restricted_maps2[scale][input_reg].erase(output_reg);
+    removing_pairs2.emplace_back(
+        std::pair<uint8_t, std::pair<uint32_t, uint32_t>>(
+            scale, std::pair<uint32_t, uint32_t>(output_reg, input_reg)));
   };
 
   // reverse the use position
-  std::vector<UsePosition *> stack;
+  std::vector<UsePosition*> stack;
   while (register_use) {
     stack.emplace_back(register_use);
 
     register_use = register_use->next();
-    while (register_use && register_use->type() != UsePositionType::kRequiresRegister)
+    while (register_use &&
+           register_use->type() != UsePositionType::kRequiresRegister)
       register_use = register_use->next();
   }
 
@@ -4167,12 +4185,15 @@ int LinearScanAllocator::SplitRRange(LiveRange* current, const Vector<LifetimePo
   int i = static_cast<int>(stack.size() - 1);
   for (; i >= 0; --i) {
     int instr_index = stack[i]->pos().ToInstructionIndex();
-    Instruction *instr = instructions->InstructionAt(instr_index);
+    Instruction* instr = instructions->InstructionAt(instr_index);
     int32_t displacement;
     uint32_t output_reg, input_reg;
-    InstructionOperand *output = instr->OutputCount() ? instr->Output() : instr->InputAt(instr->InputCount() - 1);
-    InstructionOperand *input1 = instr->InputAt(0);
-    InstructionOperand *input2 = instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
+    InstructionOperand* output = instr->OutputCount()
+                                     ? instr->Output()
+                                     : instr->InputAt(instr->InputCount() - 1);
+    InstructionOperand* input1 = instr->InputAt(0);
+    InstructionOperand* input2 =
+        instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
     AddressingMode mode = AddressingModeField::decode(instr->opcode());
     switch (mode) {
       case kMode_None:
@@ -4180,82 +4201,110 @@ int LinearScanAllocator::SplitRRange(LiveRange* current, const Vector<LifetimePo
         break;
       case kMode_MRI:
         // map modrm
-#define MR_REG { \
-        get_imm(input2, displacement, instructions); \
-        input_reg = UnallocatedOperand::cast(input1)->virtual_register(); \
-        output_reg = UnallocatedOperand::cast(output)->virtual_register();\
-        if (is_int8(displacement)) { \
-          erase_sensitive_map(output_reg, input_reg, 1); \
-        } else { \
-          erase_sensitive_map(output_reg, input_reg, 2); \
-        }        \
-      }
-      MR_REG
+#define MR_REG                                                         \
+  {                                                                    \
+    get_imm(input2, displacement, instructions);                       \
+    input_reg = UnallocatedOperand::cast(input1)->virtual_register();  \
+    output_reg = UnallocatedOperand::cast(output)->virtual_register(); \
+    if (is_int8(displacement)) {                                       \
+      erase_sensitive_map1(output_reg, input_reg, 1);                  \
+    } else {                                                           \
+      erase_sensitive_map1(output_reg, input_reg, 2);                  \
+    }                                                                  \
+  }
+        MR_REG
         break;
-        case kMode_MR1:
-        case kMode_MR2:
-        case kMode_MR4:
-        case kMode_MR8:
-          break;
-#define MRS_REG { \
-        output_reg = UnallocatedOperand::cast(input1)->virtual_register(); \
-        input_reg = UnallocatedOperand::cast(input2)->virtual_register(); \
-        if (output_reg != virtual_reg && input_reg != virtual_reg) {\
-            break;  \
-          }         \
-        }
-        case kMode_MR1I:
+      case kMode_MR1:
+      case kMode_MR2:
+      case kMode_MR4:
+      case kMode_MR8:
+        break;
+#define MRS_REG                                                        \
+  {                                                                    \
+    output_reg = UnallocatedOperand::cast(input1)->virtual_register(); \
+    input_reg = UnallocatedOperand::cast(input2)->virtual_register();  \
+    if (output_reg != virtual_reg && input_reg != virtual_reg) {       \
+      break;                                                           \
+    }                                                                  \
+  }
+#define UNMAP_MODRM                                                    \
+  {                                                                    \
+    input_reg = output_reg;                                            \
+    output_reg = UnallocatedOperand::cast(output)->virtual_register(); \
+    get_imm(instr->InputAt(2), displacement, instructions);            \
+    if (is_int8(displacement)) {                                       \
+      erase_sensitive_map2(output_reg, input_reg, 1);                  \
+    } else {                                                           \
+      erase_sensitive_map2(output_reg, input_reg, 2);                  \
+    }                                                                  \
+  }
+      case kMode_MR1I:
         MRS_REG
         // unmap sib
-        erase_sensitive_map(output_reg, input_reg, 0);
-        // unmap modrm
-        input_reg = output_reg;
-        output_reg = UnallocatedOperand::cast(output)->virtual_register();
-        get_imm(instr->InputAt(2), displacement, instructions);
-        if (is_int8(displacement)) {
-          erase_sensitive_map(output_reg, input_reg, 1);
-        } else {
-          erase_sensitive_map(output_reg, input_reg, 2);
-        }
+        erase_sensitive_map1(output_reg, input_reg, 0);
+        UNMAP_MODRM
         break;
-        case kMode_MR2I:
+      case kMode_MR2I:
         MRS_REG
-        erase_sensitive_map(output_reg, input_reg, 1);
+        erase_sensitive_map1(output_reg, input_reg, 1);
+        UNMAP_MODRM
         break;
-        case kMode_MR4I:
+      case kMode_MR4I:
         MRS_REG
-        erase_sensitive_map(output_reg, input_reg, 2);
+        erase_sensitive_map1(output_reg, input_reg, 2);
+        UNMAP_MODRM
         break;
-        case kMode_MR8I:
+      case kMode_MR8I:
         MRS_REG
-        erase_sensitive_map(output_reg, input_reg, 3);
+        erase_sensitive_map1(output_reg, input_reg, 3);
+        UNMAP_MODRM
         break;
-        case kMode_M1:
-        case kMode_M2:
-        case kMode_M4:
-        case kMode_M8:
-        case kMode_M1I:
-        case kMode_M2I:
-        case kMode_M4I:
-        case kMode_M8I:
-        case kMode_Root:
-          break;
+      case kMode_M1:
+      case kMode_M2:
+      case kMode_M4:
+      case kMode_M8:
+      case kMode_M1I:
+      case kMode_M2I:
+      case kMode_M4I:
+      case kMode_M8I:
+      case kMode_Root:
+        break;
     }
     if (PickRegisterThatIsAvailableLongest(current, -1, free_until_pos, reg)) {
-      LiveRange *tail = SplitRangeAt(current, register_use->pos());
+      LiveRange* tail = SplitRangeAt(current, register_use->pos());
       // don't know the tail is equal to now
       uint32_t new_vreg = tail->TopLevel()->vreg();
       fprintf(stderr, "old reg : v%d\tnew reg : v%d\n", virtual_reg, new_vreg);
       // 为后面的live range 重建map
-      for (auto &del: removing_pairs) {
+      for (auto& del : removing_pairs1) {
         if (virtual_reg == del.second.first) {
-          instructions->restricted_maps[del.first][tail->TopLevel()->vreg()].insert(del.second.second);
-          instructions->rev_restricted_maps[del.first][del.second.second].insert(tail->TopLevel()->vreg());
+          instructions->restricted_maps1[del.first][tail->TopLevel()->vreg()]
+              .insert(del.second.second);
+          instructions->rev_restricted_maps1[del.first][del.second.second]
+              .insert(tail->TopLevel()->vreg());
         } else {
-          instructions->rev_restricted_maps[del.first][tail->TopLevel()->vreg()].insert(del.second.second);
-          instructions->restricted_maps[del.first][del.second.second].insert(tail->TopLevel()->vreg());
+          instructions
+              ->rev_restricted_maps1[del.first][tail->TopLevel()->vreg()]
+              .insert(del.second.second);
+          instructions->restricted_maps1[del.first][del.second.second].insert(
+              tail->TopLevel()->vreg());
         }
       }
+      for (auto& del : removing_pairs2) {
+        if (virtual_reg == del.second.first) {
+          instructions->restricted_maps2[del.first][tail->TopLevel()->vreg()]
+              .insert(del.second.second);
+          instructions->rev_restricted_maps2[del.first][del.second.second]
+              .insert(tail->TopLevel()->vreg());
+        } else {
+          instructions
+              ->rev_restricted_maps2[del.first][tail->TopLevel()->vreg()]
+              .insert(del.second.second);
+          instructions->restricted_maps2[del.first][del.second.second].insert(
+              tail->TopLevel()->vreg());
+        }
+      }
+
       AddToUnhandled(tail);
       return reg;
     }
@@ -4376,10 +4425,11 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
       register_use->HintRegister(&hint_reg) ||
       current->RegisterFromBundle(&hint_reg);
   int reg;
-  if (!PickRegisterThatIsAvailableLongest(current, hint_reg, use_pos, reg)){
+  if (!PickRegisterThatIsAvailableLongest(current, hint_reg, use_pos, reg)) {
     reg = SplitRRange(current, use_pos);
   }
-  DEBUG_PRINT("blocking v%d pick register %s\n", current->TopLevel()->vreg(), RegisterName(reg));
+  DEBUG_PRINT("blocking v%d pick register %s\n", current->TopLevel()->vreg(),
+              RegisterName(reg));
 
   if (use_pos[reg] < register_use->pos()) {
     // If there is a gap position before the next register use, we can
@@ -5024,7 +5074,7 @@ void LiveRangeConnector::ConnectRanges(Zone* local_zone) {
     if (top_range == nullptr) continue;
     bool connect_spilled = top_range->IsSpilledOnlyInDeferredBlocks(data());
     LiveRange* first_range = top_range;
-    for (LiveRange *second_range = first_range->next(); second_range != nullptr;
+    for (LiveRange* second_range = first_range->next(); second_range != nullptr;
          first_range = second_range, second_range = second_range->next()) {
       LifetimePosition pos = second_range->Start();
       // Add gap move if the two live ranges touch and there is no block

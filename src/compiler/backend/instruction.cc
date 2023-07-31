@@ -5,6 +5,7 @@
 #include "src/compiler/backend/instruction.h"
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdio>
 #include <iomanip>
 #include <unordered_set>
@@ -86,7 +87,7 @@ bool get_imm(InstructionOperand* op, int32_t& imm,
 void InstructionSequence::add_sensitive_map(Instruction* instr) {
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
-  if (instr->InputCount() > 4) return;
+  assert(instr->InputCount() < 4 && "too many inputs in instr");
   InstructionOperand* output = instr->OutputCount()
                                    ? instr->Output()
                                    : instr->InputAt(instr->InputCount() - 1);
@@ -112,9 +113,9 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       // 判断一下disp的长度
       // map[input1] = output
       if (is_int8(displacement)) {
-        add_scale2_registers(output_reg, virtual_reg);
+        add_modrm_disp8_registers_wosib(output_reg, virtual_reg);
       } else {
-        add_scale4_registers(output_reg, virtual_reg);
+        add_modrm_disp32_registers_wosib(output_reg, virtual_reg);
       }
       break;
     case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
@@ -122,14 +123,15 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
       add_scale1_registers(virtual_reg, virtual_reg2);
+
+      // map modrm
       imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
       if (!get_imm(imm, displacement, this)) break;
-      // map modrm
       if (!get_virtual_reg(output, output_reg)) break;
       if (is_int8(displacement)) {
-        add_scale2_registers(output_reg, virtual_reg);
+        add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
       } else {
-        add_scale4_registers(output_reg, virtual_reg);
+        add_modrm_disp32_registers_withsib(output_reg, virtual_reg);
       }
       break;
     case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
@@ -137,48 +139,48 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
       add_scale2_registers(virtual_reg, virtual_reg2);
+
+      // map modrm
       imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
       if (!get_imm(imm, displacement, this)) break;
-      // map modrm
-      //          if (!get_virtual_reg(output, output_reg))
-      //            break;
-      //          if (is_int8(displacement)) {
-      //            add_scale2_registers(output_reg, virtual_reg);
-      //          } else {
-      //            add_scale4_registers(output_reg, virtual_reg);
-      //          }
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (is_int8(displacement)) {
+        add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
+      } else {
+        add_modrm_disp32_registers_withsib(output_reg, virtual_reg);
+      }
       break;
     case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
       if (!get_virtual_reg(input1, virtual_reg)) break;
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
       add_scale4_registers(virtual_reg, virtual_reg2);
+
+      // map modrm
       imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
       if (!get_imm(imm, displacement, this)) break;
-      // map modrm
-      //          if (!get_virtual_reg(output, output_reg))
-      //            break;
-      //          if (is_int8(displacement)) {
-      //            add_scale2_registers(output_reg, virtual_reg);
-      //          } else {
-      //            add_scale4_registers(output_reg, virtual_reg);
-      //          }
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (is_int8(displacement)) {
+        add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
+      } else {
+        add_modrm_disp32_registers_withsib(output_reg, virtual_reg);
+      }
       break;
     case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
       if (!get_virtual_reg(input1, virtual_reg)) break;
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
       add_scale8_registers(virtual_reg, virtual_reg2);
+
+      // map modrm
       imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
       if (!get_imm(imm, displacement, this)) break;
-      // map modrm
-      //          if (!get_virtual_reg(output, output_reg))
-      //            break;
-      //          if (is_int8(displacement)) {
-      //            add_scale2_registers(output_reg, virtual_reg);
-      //          } else {
-      //            add_scale4_registers(output_reg, virtual_reg);
-      //          }
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (is_int8(displacement)) {
+        add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
+      } else {
+        add_modrm_disp32_registers_withsib(output_reg, virtual_reg);
+      }
       break;
     case kMode_None:
     case kMode_M1:
@@ -207,23 +209,8 @@ uint8_t InstructionSequence::gen_sib(uint8_t scale, uint8_t index,
 }
 
 bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
-#ifdef NONE
-  if (op_registers.count(vreg) > 0) {
-    Register reg = Register::from_code(preg);
-    uint8_t code =
-        gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t>(0b101),
-                static_cast<uint8_t>(reg.low_bits()));
-    if (invalid_codes.count(code) > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n",
-                  RegisterName(Register::from_code(preg)), vreg);
-      DEBUG_PRINT("code = %x\n", code);
-      return false;
-    }
-  }
-#endif
-
+#if false  // 没必要专门检查pop，而且还有disp32
   // check
-  uint32_t index = Register::from_code(preg).low_bits();
   if (index == 0b010 || index == 0b011) {
     if (rev_restricted_maps[1].count(vreg)) {
       DEBUG_PRINT("assign %s to v%d failed\n",
@@ -231,10 +218,11 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       return false;
     }
   }
-
+#endif
+  uint32_t index = Register::from_code(preg).low_bits();
   for (int i = 0; i < 4; ++i) {
-    if (rev_restricted_maps[i].count(vreg) == 0) continue;
-    auto& candidate_set = rev_restricted_maps[i][vreg];
+    if (rev_restricted_maps1[i].count(vreg) == 0) continue;
+    auto& candidate_set = rev_restricted_maps1[i][vreg];
     for (auto& val : candidate_set) {
       if (v2p_regs.count(val) == 0) continue;
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
@@ -251,12 +239,32 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     }
   }
 
+  uint32_t reg = index;
+  for (int i = 1; i <= 2; ++i) {
+    if (rev_restricted_maps2[i].count(vreg) == 0) continue;
+    auto& candidate_set = rev_restricted_maps2[i][vreg];
+    for (auto& val : candidate_set) {
+      if (v2p_regs.count(val) == 0) continue;
+      uint32_t rm = Register::from_code(v2p_regs[val]).low_bits();
+      uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
+      if (invalid_codes2.count(code) > 0) {
+        DEBUG_PRINT("assign %s to v%d failed\n",
+                    RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg,
+                    RegisterName(Register::from_code(reg)), val,
+                    RegisterName(Register::from_code(rm)),
+                    static_cast<uint32_t>(code));
+        return false;
+      }
+    }
+  }
+
   // reverse check
   uint32_t base = Register::from_code(preg).low_bits();
   index = 0;
   for (int i = 0; i < 4; ++i) {
-    if (restricted_maps[i].count(vreg) == 0) continue;
-    auto& candidate_set = restricted_maps[i][vreg];
+    if (restricted_maps1[i].count(vreg) == 0) continue;
+    auto& candidate_set = restricted_maps1[i][vreg];
     for (auto& val : candidate_set) {
       if (v2p_regs.count(val) == 0) continue;
       index = Register::from_code(v2p_regs[val]).low_bits();
@@ -272,6 +280,27 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
       }
     }
   }
+
+  uint32_t rm = base;
+  for (int i = 1; i <= 2; ++i) {
+    if (restricted_maps2[i].count(vreg) == 0) continue;
+    auto& candidate_set = restricted_maps2[i][vreg];
+    for (auto& val : candidate_set) {
+      if (v2p_regs.count(val) == 0) continue;
+      uint32_t reg = Register::from_code(v2p_regs[val]).low_bits();
+      uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
+      if (invalid_codes2.count(code) > 0) {
+        DEBUG_PRINT("assign %s to v%d failed\n",
+                    RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val,
+                    RegisterName(Register::from_code(reg)), vreg,
+                    RegisterName(Register::from_code(rm)),
+                    static_cast<uint32_t>(code));
+        return false;
+      }
+    }
+  }
+
   return true;
 }
 
@@ -279,7 +308,7 @@ void InstructionSequence::print_restricted_maps() {
 #ifdef DEBUG
   for (int i = 0; i < 4; ++i) {
     DEBUG_PRINT("mod %d\n", i);
-    for (auto& pairs : restricted_maps[i]) {
+    for (auto& pairs : restricted_maps1[i]) {
       DEBUG_PRINT("v%d", pairs.first);
       DEBUG_PRINT(" ->");
       for (auto& reg : pairs.second) {
@@ -1416,26 +1445,51 @@ std::ostream& operator<<(std::ostream& os, const InstructionSequence& code) {
 }
 
 void InstructionSequence::add_scale1_registers(uint32_t reg, uint32_t res) {
-  restricted_maps[0][reg].insert(res);
-  rev_restricted_maps[0][res].insert(reg);
+  restricted_maps1[0][reg].insert(res);
+  rev_restricted_maps1[0][res].insert(reg);
 }
 
 void InstructionSequence::add_scale2_registers(uint32_t reg, uint32_t res) {
-  restricted_maps[1][reg].insert(res);
-  rev_restricted_maps[1][res].insert(reg);
+  restricted_maps1[1][reg].insert(res);
+  rev_restricted_maps1[1][res].insert(reg);
 }
 
 void InstructionSequence::add_scale4_registers(uint32_t reg, uint32_t res) {
-  restricted_maps[2][reg].insert(res);
-  rev_restricted_maps[2][res].insert(reg);
+  restricted_maps1[2][reg].insert(res);
+  rev_restricted_maps1[2][res].insert(reg);
 }
 
 void InstructionSequence::add_scale8_registers(uint32_t reg, uint32_t res) {
-  restricted_maps[3][reg].insert(res);
-  rev_restricted_maps[3][res].insert(reg);
+  restricted_maps1[3][reg].insert(res);
+  rev_restricted_maps1[3][res].insert(reg);
 }
 
-void InstructionSequence::add_83_register(uint32_t reg) {}
+// only use in modrm sib + disp instructions
+void InstructionSequence::add_modrm_disp8_registers_wosib(uint32_t reg,
+                                                          uint32_t res) {
+  restricted_maps2[1][reg].insert(res);
+  rev_restricted_maps2[1][res].insert(reg);
+}
+
+void InstructionSequence::add_modrm_disp8_registers_withsib(uint32_t reg,
+                                                            uint32_t res) {
+  restricted_maps1[1][reg].insert(res);
+  rev_restricted_maps1[1][res].insert(reg);
+}
+
+// only use in modrm sib + disp instructions
+void InstructionSequence::add_modrm_disp32_registers_wosib(uint32_t reg,
+                                                           uint32_t res) {
+  restricted_maps2[2][reg].insert(res);
+  rev_restricted_maps2[2][res].insert(reg);
+}
+
+// only use in modrm sib + disp instructions
+void InstructionSequence::add_modrm_disp32_registers_withsib(uint32_t reg,
+                                                             uint32_t res) {
+  restricted_maps1[2][reg].insert(res);
+  rev_restricted_maps1[2][res].insert(reg);
+}
 
 }  // namespace compiler
 }  // namespace internal

@@ -5,6 +5,7 @@
 #ifndef V8_COMPILER_BACKEND_INSTRUCTION_H_
 #define V8_COMPILER_BACKEND_INSTRUCTION_H_
 
+#include <cstdint>
 #include <deque>
 #include <iosfwd>
 #include <map>
@@ -1689,30 +1690,39 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   void RecomputeAssemblyOrderForTesting();
 
   // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
-  std::unordered_map<uint32_t, std::unordered_set<uint32_t>> restricted_maps[4];
-  static std::unordered_set<AddressingMode>& sensitive_modes;
   std::unordered_map<uint32_t, std::unordered_set<uint32_t>>
-      rev_restricted_maps[4];
+      restricted_maps1[4];
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>>
+      rev_restricted_maps1[4];
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>>
+      restricted_maps2[4];
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>>
+      rev_restricted_maps2[4];
   // not allowed to be rsp, r12, rdi, r14, rsi, r15
   //  std::unordered_set<uint32_t> op_registers;
   // for quick search vreg to physical reg,
   // 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
-
   std::unordered_map<uint32_t, uint32_t> v2p_regs;
   // malicous byte
   static std::unordered_set<uint8_t>& invalid_codes1;
   static std::unordered_set<uint8_t>& invalid_codes2;
   static std::unordered_set<ArchOpcode>& sensitive_opcodes;
+  static std::unordered_set<AddressingMode>& sensitive_modes;
 
   // 构建sensitive map
   void add_sensitive_map(Instruction* instr);
   void construct_sensitive_map();
-  // 用res约束reg
+  // sib
   void add_scale1_registers(uint32_t reg, uint32_t res);
   void add_scale2_registers(uint32_t reg, uint32_t res);
   void add_scale4_registers(uint32_t reg, uint32_t res);
   void add_scale8_registers(uint32_t reg, uint32_t res);
-  void add_83_register(uint32_t reg);
+  // modrm
+  // only use in modrm sib + disp instructions
+  void add_modrm_disp8_registers_withsib(uint32_t reg, uint32_t res);
+  void add_modrm_disp32_registers_withsib(uint32_t reg, uint32_t res);
+  void add_modrm_disp8_registers_wosib(uint32_t reg, uint32_t res);
+  void add_modrm_disp32_registers_wosib(uint32_t reg, uint32_t res);
 
   // 检查分配产生的modr/m或者sib是否合法
   bool check_allocate(uint32_t vreg, uint32_t preg);
