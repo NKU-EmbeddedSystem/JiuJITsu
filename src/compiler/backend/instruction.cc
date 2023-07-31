@@ -1,15 +1,18 @@
 // Copyright 2014 the V8 project authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
-//#define MY_DEBUG
+// #define MY_DEBUG
 #include "src/compiler/backend/instruction.h"
 
 #include <cstddef>
+#include <cstdio>
 #include <iomanip>
+#include <unordered_set>
 
 #include "src/codegen/interface-descriptors.h"
 #include "src/codegen/register-configuration.h"
 #include "src/codegen/source-position.h"
+#include "src/compiler/backend/instruction-codes.h"
 #include "src/compiler/common-operator.h"
 #include "src/compiler/graph.h"
 #include "src/compiler/node.h"
@@ -20,189 +23,181 @@
 namespace v8 {
 namespace internal {
 namespace compiler {
-// movsd may be too complex because its syntax is not portable with other instructions
-std::unordered_set<ArchOpcode> &InstructionSequence::sensitive_opcodes = *new std::unordered_set<ArchOpcode>{
-//    kX64Add, kX64Add32, kX64And, kX64And32,kX64Cmp, kX64Cmp32, kX64Cmp16, kX64Cmp8,
-//    kX64Or, kX64Or32, kX64Sub, kX64Sub32, kX64Xor, kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
-      kX64Movb, kX64Movl, kX64Movq, kX64Movw,
-      kX64Lea, kX64Lea32
-};
+// movsd may be too complex because its syntax is not portable with other
+// instructions
+std::unordered_set<ArchOpcode>& InstructionSequence::sensitive_opcodes =
+    *new std::unordered_set<ArchOpcode>{
+        kX64Add,   kX64Add32, kX64And,  kX64And32, kX64Cmp,    kX64Cmp32,
+        kX64Cmp16, kX64Cmp8,  kX64Or,   kX64Or32,  kX64Sub,    kX64Sub32,
+        kX64Xor,   kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
+        kX64Movb,  kX64Movl,  kX64Movq, kX64Movw,  kX64Lea,    kX64Lea32};
 
-std::unordered_set<uint8_t>& InstructionSequence::invalid_codes = *new std::unordered_set<uint8_t> {
-  0x0f,
-  0x50, 0x51, 0x52, 0x53, 0x54, 0x56, 0x57,
-  0x58, 0x59, 0x5a, 0x5b, 0x5c, 0x5e, 0x5f
-//  0x74, 0x7c, 0x84, 0x8c, 0xb4,
-//  0x90, 0x91, 0x92, 0x93, 0x94, 0x98, 0x99,
-//  0xc3, 0xc9, 0xcc, 0xcf, 0xec, 0xee, 0xef
-};
+std::unordered_set<AddressingMode>& InstructionSequence::sensitive_modes =
+    *new std::unordered_set<AddressingMode>{kMode_MR1I, kMode_MR2I, kMode_MR4I,
+                                            kMode_MR8I, kMode_MRI};
 
+std::unordered_set<uint8_t>& InstructionSequence::invalid_codes1 =
+    *new std::unordered_set<uint8_t>{
+        0x58,  // pop rax
+        0x59,  // pop rcx
+        0x5a,  // pop rdx
+        0x5b,  // pop rbx
+        0x5c,  // pop rsp
+        0x5d,  // pop rbp
+        0x5e,  // pop rsi
+        0x5f,  // pop rdi
+        0xa4,  // movsb [rdi],[rsi]
+        0xa5,  // movsd [rdi],[rsi]
+        0xa6,  // cmpsb [rsi],[rdi]
+        0xa7,  // cmpsd [rsi],[rdi]
+        0xc3,  // ret
+        0xcc,  // int3
+        0xf1,  // int1
+    };
+std::unordered_set<uint8_t>& InstructionSequence::invalid_codes2 =
+    *new std::unordered_set<uint8_t>{
+        0x5c,  // pop rsp
+        0x74,  // je 12345679h
+        0x7c,  // jl 12345679h
+        0x84,  // test bh,bh
+        0x8c,  // mov edi,gs
+        0xa4,  // movsb [rdi],[rsi]
+        0xb4,  // mov ah,0FFh
+    };
 
 // 如果前一个操作数是固定寄存器怎么办呢，要不先不考虑固定的了
 bool get_virtual_reg(InstructionOperand* op, uint32_t& reg) {
-  if (!op->IsUnallocated())
-    return false;
+  if (!op->IsUnallocated()) return false;
   UnallocatedOperand* un_op = UnallocatedOperand::cast(op);
   // 如果有固定的寄存器分配策略应该也处理不了
-  if (un_op->HasFixedPolicy())
-    return false;
+  if (un_op->HasFixedPolicy()) return false;
   reg = un_op->virtual_register();
   return true;
 }
 
-bool get_imm(InstructionOperand* op, int32_t& imm, InstructionSequence* sequence_) {
-  if (!op->IsImmediate())
-    return false;
+bool get_imm(InstructionOperand* op, int32_t& imm,
+             InstructionSequence* sequence_) {
+  if (!op->IsImmediate()) return false;
   ImmediateOperand* imm_op = ImmediateOperand::cast(op);
   if (imm_op->type() == ImmediateOperand::INDEXED) {
     imm = sequence_->immediates().at(imm_op->indexed_value()).ToInt32();
 
-  } else if(imm_op->type() == ImmediateOperand::ImmediateType::INLINE) {
+  } else if (imm_op->type() == ImmediateOperand::ImmediateType::INLINE) {
     imm = imm_op->inline_value();
   }
   return true;
 }
 
+void InstructionSequence::add_sensitive_map(Instruction* instr) {
+  AddressingMode mode = instr->addressing_mode();
+  if (sensitive_modes.count(mode) == 0) return;
+  if (instr->InputCount() > 4) return;
+  InstructionOperand* output = instr->OutputCount()
+                                   ? instr->Output()
+                                   : instr->InputAt(instr->InputCount() - 1);
+  InstructionOperand* input1 = instr->InputAt(0);
+  InstructionOperand* input2 =
+      instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
+  ImmediateOperand* imm = nullptr;
+  int32_t displacement = 0;
+  uint32_t output_reg, virtual_reg;
+  uint32_t virtual_reg2;
 
-void InstructionSequence::add_sensitive_map(Instruction* instr){
-    InstructionCode opcode = instr->opcode();
-    ArchOpcode arch_opcode = ArchOpcodeField::decode(opcode);
-    if (sensitive_opcodes.count(arch_opcode) > 0) {
-      if (instr->InputCount() > 4)
-        return;
-      InstructionOperand *output = instr->OutputCount() ? instr->Output() : instr->InputAt(instr->InputCount() - 1);
-      InstructionOperand *input1 = instr->InputAt(0);
-      InstructionOperand *input2 = instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
-      ImmediateOperand *imm = nullptr;
-      int32_t displacement = 0;
-      uint32_t output_reg, virtual_reg;
-      uint32_t virtual_reg2;
-
-      AddressingMode mode = AddressingModeField::decode(instr->opcode());
-      switch (mode) {
-        case AddressingMode::kMode_MR:
-          break;
-        case kMode_None: // r1, r2
-//          if (!get_virtual_reg(input1, virtual_reg))
-//            break;
-//          if (arch_opcode == kX64Sub) {
-            // 用输出约束输入
-            // map[input] = output
-            // 这种应该很少，mod很少
-            // sub rsp/r12
-            // sub rsi/r14
-            // sub rdi/r15
-            // get vreg
-//            add_83_register(virtual_reg);
-//          }
-          break;
-        case kMode_MRI: // leal rax,[rbx - 0x3d]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          // TODO FIX When output_reg is fixed or output_reg has been allocated
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          if (!get_imm(input2, displacement, this))
-            break;
-          // mod为disp的长度, reg和rm为output和input
-          // 判断一下disp的长度
-          // map[input1] = output
-          if (is_int8(displacement)) {
-            add_scale2_registers(output_reg, virtual_reg);
-          } else {
-            add_scale4_registers(output_reg, virtual_reg);
-          }
-          break;
-        case kMode_MR1: // leal rax,[rbx + rax]
-        case kMode_MR2: // leal rbx,[rax + rbx * 2]
-        case kMode_MR4: // leal rbx, [rax + rbx * 4]
-        case kMode_MR8: // leal rbx, [rax + rbx * 8]
-          break;
-        case kMode_MR1I: // leal rbx, [rax + rbx - 0x3d]
-          // don't know why leal rab, [rbx - 0x3d] belonging to this
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale1_registers(virtual_reg, virtual_reg2);
-          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
-          if (!get_imm(imm, displacement, this)) break;
-          // map modrm
-          if (!get_virtual_reg(output, output_reg))
-            break;
-          if (is_int8(displacement)) {
-            add_scale2_registers(output_reg, virtual_reg);
-          } else {
-            add_scale4_registers(output_reg, virtual_reg);
-          }
-          break;
-        case kMode_MR2I: // leal rbx, [rax + rbx * 2 - 0x3d]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale2_registers(virtual_reg, virtual_reg2);
-          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
-          if (!get_imm(imm, displacement, this)) break;
-          // map modrm
-//          if (!get_virtual_reg(output, output_reg))
-//            break;
-//          if (is_int8(displacement)) {
-//            add_scale2_registers(output_reg, virtual_reg);
-//          } else {
-//            add_scale4_registers(output_reg, virtual_reg);
-//          }
-          break;
-        case kMode_MR4I: // leal rbx, [rax + rbx * 4 - 0x3d]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale4_registers(virtual_reg, virtual_reg2);
-          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
-          if (!get_imm(imm, displacement, this)) break;
-          // map modrm
-//          if (!get_virtual_reg(output, output_reg))
-//            break;
-//          if (is_int8(displacement)) {
-//            add_scale2_registers(output_reg, virtual_reg);
-//          } else {
-//            add_scale4_registers(output_reg, virtual_reg);
-//          }
-          break;
-        case kMode_MR8I: // leal rbx, [rax + rbx * 8 - 0x3d]
-          if (!get_virtual_reg(input1, virtual_reg))
-            break;
-          if (!get_virtual_reg(input2, virtual_reg2))
-            break;
-          // map sib
-          add_scale8_registers(virtual_reg, virtual_reg2);
-          imm = static_cast<ImmediateOperand *>(instr->InputAt(2));
-          if (!get_imm(imm, displacement, this)) break;
-          // map modrm
-//          if (!get_virtual_reg(output, output_reg))
-//            break;
-//          if (is_int8(displacement)) {
-//            add_scale2_registers(output_reg, virtual_reg);
-//          } else {
-//            add_scale4_registers(output_reg, virtual_reg);
-//          }
-          break;
-        case kMode_M1: // leal rbx, [rbp + rbx]
-        case kMode_M2: // leal rbx,[rbp + rbx * 2]
-        case kMode_M4: // leal rbx,[rbp + rbx * 4]
-        case kMode_M8: // leal rbx,[rbp + rbx * 8]
-        case kMode_M1I: // leal rbx,[rbp + rbx - 0x3d]
-        case kMode_M2I: // leal rbx, [rbp + rbx * 2 - 0x3d]
-        case kMode_M4I: // leal rbx,[rbp + rbx * 4 - 0x3d]
-        case kMode_M8I: // leal rbx,[rbp + rbx * 8 - 0x3d]
-        case kMode_Root:
-          break;
+  switch (mode) {
+    case kMode_M1I:
+    case kMode_M2I:
+    case kMode_M4I:
+    case kMode_M8I:
+      break;
+    case kMode_MRI:  // leal rax,[rbx - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (!get_imm(input2, displacement, this)) break;
+      // mod为disp的长度, reg和rm为output和input
+      // 判断一下disp的长度
+      // map[input1] = output
+      if (is_int8(displacement)) {
+        add_scale2_registers(output_reg, virtual_reg);
+      } else {
+        add_scale4_registers(output_reg, virtual_reg);
       }
-    }
+      break;
+    case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      // map sib
+      add_scale1_registers(virtual_reg, virtual_reg2);
+      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
+      if (!get_imm(imm, displacement, this)) break;
+      // map modrm
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (is_int8(displacement)) {
+        add_scale2_registers(output_reg, virtual_reg);
+      } else {
+        add_scale4_registers(output_reg, virtual_reg);
+      }
+      break;
+    case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      // map sib
+      add_scale2_registers(virtual_reg, virtual_reg2);
+      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
+      if (!get_imm(imm, displacement, this)) break;
+      // map modrm
+      //          if (!get_virtual_reg(output, output_reg))
+      //            break;
+      //          if (is_int8(displacement)) {
+      //            add_scale2_registers(output_reg, virtual_reg);
+      //          } else {
+      //            add_scale4_registers(output_reg, virtual_reg);
+      //          }
+      break;
+    case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      // map sib
+      add_scale4_registers(virtual_reg, virtual_reg2);
+      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
+      if (!get_imm(imm, displacement, this)) break;
+      // map modrm
+      //          if (!get_virtual_reg(output, output_reg))
+      //            break;
+      //          if (is_int8(displacement)) {
+      //            add_scale2_registers(output_reg, virtual_reg);
+      //          } else {
+      //            add_scale4_registers(output_reg, virtual_reg);
+      //          }
+      break;
+    case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      // map sib
+      add_scale8_registers(virtual_reg, virtual_reg2);
+      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
+      if (!get_imm(imm, displacement, this)) break;
+      // map modrm
+      //          if (!get_virtual_reg(output, output_reg))
+      //            break;
+      //          if (is_int8(displacement)) {
+      //            add_scale2_registers(output_reg, virtual_reg);
+      //          } else {
+      //            add_scale4_registers(output_reg, virtual_reg);
+      //          }
+      break;
+    case kMode_None:
+    case kMode_M1:
+    case kMode_M2:
+    case kMode_M4:
+    case kMode_M8:
+    case kMode_MR:
+    case kMode_MR1:
+    case kMode_MR2:
+    case kMode_MR4:
+    case kMode_MR8:
+    case kMode_Root:
+      break;
+  }
 }
 
 void InstructionSequence::construct_sensitive_map() {
@@ -211,7 +206,8 @@ void InstructionSequence::construct_sensitive_map() {
   }
 }
 
-uint8_t InstructionSequence::gen_sib(uint8_t scale, uint8_t index, uint8_t base) {
+uint8_t InstructionSequence::gen_sib(uint8_t scale, uint8_t index,
+                                     uint8_t base) {
   return (scale << 6) + (index << 3) + base;
 }
 
@@ -219,9 +215,12 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 #ifdef NONE
   if (op_registers.count(vreg) > 0) {
     Register reg = Register::from_code(preg);
-    uint8_t code = gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t >(0b101), static_cast<uint8_t>(reg.low_bits()));
+    uint8_t code =
+        gen_sib(static_cast<uint8_t>(0b11), static_cast<uint8_t>(0b101),
+                static_cast<uint8_t>(reg.low_bits()));
     if (invalid_codes.count(code) > 0) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("assign %s to v%d failed\n",
+                  RegisterName(Register::from_code(preg)), vreg);
       DEBUG_PRINT("code = %x\n", code);
       return false;
     }
@@ -232,23 +231,26 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   uint32_t index = Register::from_code(preg).low_bits();
   if (index == 0b010 || index == 0b011) {
     if (rev_restricted_maps[1].count(vreg)) {
-      DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
+      DEBUG_PRINT("assign %s to v%d failed\n",
+                  RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
 
   for (int i = 0; i < 4; ++i) {
-    if (rev_restricted_maps[i].count(vreg) == 0)
-      continue;
+    if (rev_restricted_maps[i].count(vreg) == 0) continue;
     auto& candidate_set = rev_restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
-      if (v2p_regs.count(val) == 0)
-        continue;
+      if (v2p_regs.count(val) == 0) continue;
       uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
-      if (invalid_codes.count(code) > 0) {
-        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg, RegisterName(Register::from_code(index)), val, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+      if (invalid_codes1.count(code) > 0) {
+        DEBUG_PRINT("assign %s to v%d failed\n",
+                    RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", vreg,
+                    RegisterName(Register::from_code(index)), val,
+                    RegisterName(Register::from_code(base)),
+                    static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -258,17 +260,19 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   uint32_t base = Register::from_code(preg).low_bits();
   index = 0;
   for (int i = 0; i < 4; ++i) {
-    if (restricted_maps[i].count(vreg) == 0)
-      continue;
+    if (restricted_maps[i].count(vreg) == 0) continue;
     auto& candidate_set = restricted_maps[i][vreg];
     for (auto& val : candidate_set) {
-      if (v2p_regs.count(val) == 0)
-        continue;
+      if (v2p_regs.count(val) == 0) continue;
       index = Register::from_code(v2p_regs[val]).low_bits();
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
-      if (invalid_codes.count(code) > 0) {
-        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(Register::from_code(preg)), vreg);
-        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val, RegisterName(Register::from_code(index)), vreg, RegisterName(Register::from_code(base)), static_cast<uint32_t>(code));
+      if (invalid_codes1.count(code) > 0) {
+        DEBUG_PRINT("assign %s to v%d failed\n",
+                    RegisterName(Register::from_code(preg)), vreg);
+        DEBUG_PRINT("v%d:%s, v%d:%s gen code %x\n", val,
+                    RegisterName(Register::from_code(index)), vreg,
+                    RegisterName(Register::from_code(base)),
+                    static_cast<uint32_t>(code));
         return false;
       }
     }
@@ -276,7 +280,7 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   return true;
 }
 
-void InstructionSequence::print_restricted_maps(){
+void InstructionSequence::print_restricted_maps() {
 #ifdef DEBUG
   for (int i = 0; i < 4; ++i) {
     DEBUG_PRINT("mod %d\n", i);
@@ -1416,7 +1420,6 @@ std::ostream& operator<<(std::ostream& os, const InstructionSequence& code) {
   return os;
 }
 
-
 void InstructionSequence::add_scale1_registers(uint32_t reg, uint32_t res) {
   restricted_maps[0][reg].insert(res);
   rev_restricted_maps[0][res].insert(reg);
@@ -1437,8 +1440,7 @@ void InstructionSequence::add_scale8_registers(uint32_t reg, uint32_t res) {
   rev_restricted_maps[3][res].insert(reg);
 }
 
-void InstructionSequence::add_83_register(uint32_t reg) {
-}
+void InstructionSequence::add_83_register(uint32_t reg) {}
 
 }  // namespace compiler
 }  // namespace internal

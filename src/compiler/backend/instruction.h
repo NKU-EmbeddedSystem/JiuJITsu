@@ -1495,10 +1495,10 @@ class V8_EXPORT_PRIVATE InstructionBlock final
   const RpoNumber loop_header_;
   const RpoNumber loop_end_;
   RpoNumber dominator_;
-  int32_t code_start_;   // start index of arch-specific code.
-  int32_t code_end_ = -1;     // end index of arch-specific code.
-  const bool deferred_;       // Block contains deferred code.
-  bool handler_;              // Block is a handler entry point.
+  int32_t code_start_;     // start index of arch-specific code.
+  int32_t code_end_ = -1;  // end index of arch-specific code.
+  const bool deferred_;    // Block contains deferred code.
+  bool handler_;           // Block is a handler entry point.
   bool switch_target_ = false;
   bool alignment_ = false;  // insert alignment before this block
   bool needs_frame_ = false;
@@ -1517,7 +1517,7 @@ std::ostream& operator<<(std::ostream&, const PrintableInstructionBlock&);
 
 using ConstantDeque = ZoneDeque<Constant>;
 using ConstantMap = std::map<int, Constant, std::less<int>,
-                             ZoneAllocator<std::pair<const int, Constant> > >;
+                             ZoneAllocator<std::pair<const int, Constant>>>;
 
 using InstructionDeque = ZoneDeque<Instruction*>;
 using ReferenceMapDeque = ZoneDeque<ReferenceMap*>;
@@ -1690,14 +1690,18 @@ class V8_EXPORT_PRIVATE InstructionSequence final
 
   // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
   std::unordered_map<uint32_t, std::unordered_set<uint32_t>> restricted_maps[4];
-  std::unordered_map<uint32_t, std::unordered_set<uint32_t>> rev_restricted_maps[4];
+  static std::unordered_set<AddressingMode>& sensitive_modes;
+  std::unordered_map<uint32_t, std::unordered_set<uint32_t>>
+      rev_restricted_maps[4];
   // not allowed to be rsp, r12, rdi, r14, rsi, r15
-//  std::unordered_set<uint32_t> op_registers;
-  // for quick search vreg to physical reg, 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
+  //  std::unordered_set<uint32_t> op_registers;
+  // for quick search vreg to physical reg,
+  // 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
 
   std::unordered_map<uint32_t, uint32_t> v2p_regs;
   // malicous byte
-  static std::unordered_set<uint8_t>& invalid_codes;
+  static std::unordered_set<uint8_t>& invalid_codes1;
+  static std::unordered_set<uint8_t>& invalid_codes2;
   static std::unordered_set<ArchOpcode>& sensitive_opcodes;
 
   // 构建sensitive map
@@ -1714,7 +1718,7 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   bool check_allocate(uint32_t vreg, uint32_t preg);
   void print_restricted_maps();
 
-private:
+ private:
   friend V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
                                                     const InstructionSequence&);
 
