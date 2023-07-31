@@ -53,6 +53,7 @@ std::unordered_set<uint8_t>& InstructionSequence::invalid_codes1 =
         0xc3,  // ret
         0xcc,  // int3
         0xf1,  // int1
+        0x0f,  // syscall prefix
     };
 std::unordered_set<uint8_t>& InstructionSequence::invalid_codes2 =
     *new std::unordered_set<uint8_t>{
