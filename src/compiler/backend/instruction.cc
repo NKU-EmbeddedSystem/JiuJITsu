@@ -46,12 +46,7 @@ std::unordered_set<uint8_t>& InstructionSequence::invalid_codes1 =
         0x5d,  // pop rbp
         0x5e,  // pop rsi
         0x5f,  // pop rdi
-        0xa4,  // movsb [rdi],[rsi]
-        0xa5,  // movsd [rdi],[rsi]
-        0xa6,  // cmpsb [rsi],[rdi]
-        0xa7,  // cmpsd [rsi],[rdi]
         0xc3,  // ret
-        0xcc,  // int3
         0xf1,  // int1
         0x0f,  // syscall prefix
     };
@@ -62,7 +57,6 @@ std::unordered_set<uint8_t>& InstructionSequence::invalid_codes2 =
         0x7c,  // jl 12345679h
         0x84,  // test bh,bh
         0x8c,  // mov edi,gs
-        0xa4,  // movsb [rdi],[rsi]
         0xb4,  // mov ah,0FFh
     };
 
