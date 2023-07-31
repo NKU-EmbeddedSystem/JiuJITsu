@@ -5,6 +5,7 @@
 
 #include "src/compiler/backend/register-allocator.h"
 
+#include <cstdio>
 #include <iomanip>
 
 #include "src/base/iterator.h"
@@ -3097,6 +3098,7 @@ LiveRange* LinearScanAllocator::AssignRegisterOnReload(LiveRange* range,
     LiveRange* tail = SplitRangeAt(range, new_end);
     AddToUnhandled(tail);
   }
+
   SetLiveRangeAssignedRegister(range, reg);
   return range;
 }
@@ -3110,6 +3112,12 @@ void LinearScanAllocator::ReloadLiveRanges(
   for (RangeWithRegister range_with_register : to_be_live) {
     TopLevelLiveRange* range = range_with_register.range;
     int reg = range_with_register.expected_register;
+    // error code, we continue
+    if (reg != kUnassignedRegister &&
+        !code()->check_allocate(range->TopLevel()->vreg(), reg)) {
+      reg = kUnassignedRegister;
+    }
+
     LiveRange* to_resurrect = range->GetChildCovers(position);
     if (to_resurrect == nullptr) {
       // While the range was life until the end of the predecessor block, it is
@@ -3495,11 +3503,15 @@ void LinearScanAllocator::AllocateRegisters() {
     DCHECK(inactive_live_ranges(reg).empty());
   }
 
-#ifdef MY_DEBUG
+#ifdef DEBUG
   code()->print_restricted_maps();
 #endif
   spill_count = 0;
   code()->construct_sensitive_map();
+#ifdef DEBUG
+  code()->print_restricted_maps();
+#endif
+
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 
@@ -3757,6 +3769,8 @@ void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
   // should remove in release
   if (!code()->check_allocate(range->TopLevel()->vreg(), reg)) {
+    code()->Print();
+    code()->print_restricted_maps();
     assert(0 && "unhandled branch");
   }
 
@@ -4309,6 +4323,7 @@ int LinearScanAllocator::SplitRRange(
       return reg;
     }
   }
+
   // never reach here
   assert(false);
   return -1;
@@ -4426,8 +4441,11 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
       current->RegisterFromBundle(&hint_reg);
   int reg;
   if (!PickRegisterThatIsAvailableLongest(current, hint_reg, use_pos, reg)) {
+    fprintf(stderr, "split live range!!!\n");
     reg = SplitRRange(current, use_pos);
+    fprintf(stderr, "split done!!!\n");
   }
+
   DEBUG_PRINT("blocking v%d pick register %s\n", current->TopLevel()->vreg(),
               RegisterName(reg));
 

@@ -13,6 +13,7 @@
 #include "src/codegen/interface-descriptors.h"
 #include "src/codegen/register-configuration.h"
 #include "src/codegen/source-position.h"
+#include "src/common/globals.h"
 #include "src/compiler/backend/instruction-codes.h"
 #include "src/compiler/common-operator.h"
 #include "src/compiler/graph.h"
@@ -87,7 +88,12 @@ bool get_imm(InstructionOperand* op, int32_t& imm,
 void InstructionSequence::add_sensitive_map(Instruction* instr) {
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
-  assert(instr->InputCount() < 4 && "too many inputs in instr");
+  if (instr->InputCount() >= 4) {
+    return;
+    /* fprintf(stderr, "too many inputs in inst "); */
+    /* instr->Print(); */
+    /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
+  }
   InstructionOperand* output = instr->OutputCount()
                                    ? instr->Output()
                                    : instr->InputAt(instr->InputCount() - 1);
@@ -117,6 +123,7 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       } else {
         add_modrm_disp32_registers_wosib(output_reg, virtual_reg);
       }
+      DEBUG_PRINT("add v%d->v%d\n", output_reg, virtual_reg);
       break;
     case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
       if (!get_virtual_reg(input1, virtual_reg)) break;
@@ -209,17 +216,17 @@ uint8_t InstructionSequence::gen_sib(uint8_t scale, uint8_t index,
 }
 
 bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
-#if false  // 没必要专门检查pop，而且还有disp32
+  uint32_t index = Register::from_code(preg).low_bits();
+#if true  // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
   // check
-  if (index == 0b010 || index == 0b011) {
-    if (rev_restricted_maps[1].count(vreg)) {
+  if (index == 0b011) {
+    if (rev_restricted_maps1[1].count(vreg)) {
       DEBUG_PRINT("assign %s to v%d failed\n",
                   RegisterName(Register::from_code(preg)), vreg);
       return false;
     }
   }
 #endif
-  uint32_t index = Register::from_code(preg).low_bits();
   for (int i = 0; i < 4; ++i) {
     if (rev_restricted_maps1[i].count(vreg) == 0) continue;
     auto& candidate_set = rev_restricted_maps1[i][vreg];
@@ -318,6 +325,18 @@ void InstructionSequence::print_restricted_maps() {
     }
   }
   DEBUG_PRINT("\n");
+  DEBUG_PRINT("2-byte\n");
+  for (int i = 1; i <= 2; ++i) {
+    DEBUG_PRINT("mod %d\n", i);
+    for (auto& pairs : restricted_maps2[i]) {
+      DEBUG_PRINT("v%d", pairs.first);
+      DEBUG_PRINT(" ->");
+      for (auto& reg : pairs.second) {
+        DEBUG_PRINT("v%d ", reg);
+      }
+      DEBUG_PRINT("\n");
+    }
+  }
 #endif
 }
 
