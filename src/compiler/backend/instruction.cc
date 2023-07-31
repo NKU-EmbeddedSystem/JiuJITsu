@@ -235,8 +235,14 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     if (rev_restricted_maps1[i].count(vreg) == 0) continue;
     auto& candidate_set = rev_restricted_maps1[i][vreg];
     for (auto& val : candidate_set) {
-      if (v2p_regs.count(val) == 0) continue;
-      uint32_t base = Register::from_code(v2p_regs[val]).low_bits();
+      uint8_t base;
+      if (val == vreg) {
+        base = index;
+      } else {
+        if (v2p_regs.count(val) == 0) continue;
+        base = Register::from_code(v2p_regs[val]).low_bits();
+      }
+
       uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
       if (invalid_codes1.count(code) > 0) {
         DEBUG_PRINT("assign %s to v%d failed\n",
@@ -255,8 +261,13 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
     if (rev_restricted_maps2[i].count(vreg) == 0) continue;
     auto& candidate_set = rev_restricted_maps2[i][vreg];
     for (auto& val : candidate_set) {
-      if (v2p_regs.count(val) == 0) continue;
-      uint32_t rm = Register::from_code(v2p_regs[val]).low_bits();
+      uint32_t rm;
+      if (val == vreg) {
+        rm = reg;
+      } else {
+        if (v2p_regs.count(val) == 0) continue;
+        rm = Register::from_code(v2p_regs[val]).low_bits();
+      }
       uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
       if (invalid_codes2.count(code) > 0) {
         DEBUG_PRINT("assign %s to v%d failed\n",
@@ -317,6 +328,8 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
 
 void InstructionSequence::print_restricted_maps() {
 #ifdef DEBUG
+  DEBUG_PRINT("print map\n");
+  DEBUG_PRINT("1-byte\n");
   for (int i = 0; i < 4; ++i) {
     DEBUG_PRINT("mod %d\n", i);
     for (auto& pairs : restricted_maps1[i]) {

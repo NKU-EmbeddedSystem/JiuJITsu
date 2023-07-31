@@ -3503,9 +3503,6 @@ void LinearScanAllocator::AllocateRegisters() {
     DCHECK(inactive_live_ranges(reg).empty());
   }
 
-#ifdef DEBUG
-  code()->print_restricted_maps();
-#endif
   spill_count = 0;
   code()->construct_sensitive_map();
 #ifdef DEBUG
@@ -3762,6 +3759,7 @@ void LinearScanAllocator::AllocateRegisters() {
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
+
   DEBUG_PRINT("spill count : %d\n", spill_count);
 }
 
