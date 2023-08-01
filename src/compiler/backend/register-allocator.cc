@@ -4144,8 +4144,6 @@ bool LinearScanAllocator::TryAllocateFreeReg(
   TRACE("Assigning free reg %s to live range %d:%d\n", RegisterName(reg),
         current->TopLevel()->vreg(), current->relative_id());
 
-  if (!code()->check_allocate(current->TopLevel()->vreg(), reg)) return false;
-
   SetLiveRangeAssignedRegister(current, reg);
   return true;
 }

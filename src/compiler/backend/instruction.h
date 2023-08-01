@@ -1702,6 +1702,7 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   //  std::unordered_set<uint32_t> op_registers;
   // for quick search vreg to physical reg,
   // 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
+  // 需要知道寄存器所在的liverange的物理寄存器，而不是一个虚拟寄存器对应一个物理寄存器
   std::unordered_map<uint32_t, uint32_t> v2p_regs;
   // malicous byte
   static std::unordered_set<uint8_t>& invalid_codes1;
