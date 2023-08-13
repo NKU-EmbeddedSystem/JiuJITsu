@@ -1503,28 +1503,28 @@ void InstructionSequence::add_scale8_registers(uint32_t reg, uint32_t res) {
 // only use in modrm sib + disp instructions
 void InstructionSequence::add_modrm_disp8_registers_wosib(uint32_t reg,
                                                           uint32_t res) {
-  restricted_maps2[1][reg].insert(res);
-  rev_restricted_maps2[1][res].insert(reg);
+  restricted_maps1[1][reg].insert(res);
+  rev_restricted_maps1[1][res].insert(reg);
 }
 
 void InstructionSequence::add_modrm_disp8_registers_withsib(uint32_t reg,
                                                             uint32_t res) {
-  restricted_maps1[1][reg].insert(res);
-  rev_restricted_maps1[1][res].insert(reg);
+  restricted_maps2[1][reg].insert(res);
+  rev_restricted_maps2[1][res].insert(reg);
 }
 
 // only use in modrm sib + disp instructions
 void InstructionSequence::add_modrm_disp32_registers_wosib(uint32_t reg,
                                                            uint32_t res) {
-  restricted_maps2[2][reg].insert(res);
-  rev_restricted_maps2[2][res].insert(reg);
+  restricted_maps1[2][reg].insert(res);
+  rev_restricted_maps1[2][res].insert(reg);
 }
 
 // only use in modrm sib + disp instructions
 void InstructionSequence::add_modrm_disp32_registers_withsib(uint32_t reg,
                                                              uint32_t res) {
-  restricted_maps1[2][reg].insert(res);
-  rev_restricted_maps1[2][res].insert(reg);
+  restricted_maps2[2][reg].insert(res);
+  rev_restricted_maps2[2][res].insert(reg);
 }
 
 }  // namespace compiler
