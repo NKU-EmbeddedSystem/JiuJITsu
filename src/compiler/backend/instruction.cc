@@ -104,8 +104,7 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
   InstructionOperand* input1 = instr->InputAt(0);
   InstructionOperand* input2 =
       instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
-  ImmediateOperand* imm = nullptr;
-  int32_t displacement = 0;
+  int32_t displacement;
   uint32_t output_reg, virtual_reg;
   uint32_t virtual_reg2;
 
@@ -116,9 +115,9 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
     case kMode_M8I:
       break;
     case kMode_MRI:  // leal rax,[rbx - 0x3d]
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
-      if (!get_imm(input2, displacement, this)) break;
+      virtual_reg = UnallocatedOperand::cast(input1)->virtual_register();
+      output_reg = UnallocatedOperand::cast(output)->virtual_register();
+      displacement = GetImmediate(ImmediateOperand::cast(input2)).ToInt32();
       // mod为disp的长度, reg和rm为output和input
       // 判断一下disp的长度
       // map[input1] = output
@@ -130,15 +129,15 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       DEBUG_PRINT("add v%d->v%d\n", output_reg, virtual_reg);
       break;
     case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      virtual_reg = UnallocatedOperand::cast(input1)->virtual_register();
+      virtual_reg2 = UnallocatedOperand::cast(input2)->virtual_register();
+      displacement =
+          GetImmediate(ImmediateOperand::cast(instr->InputAt(2))).ToInt32();
+      output_reg = UnallocatedOperand::cast(output)->virtual_register();
+
       // map sib
       add_scale1_registers(virtual_reg, virtual_reg2);
-
       // map modrm
-      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
-      if (!get_imm(imm, displacement, this)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
       if (is_int8(displacement)) {
         add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
       } else {
@@ -146,15 +145,15 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       }
       break;
     case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      virtual_reg = UnallocatedOperand::cast(input1)->virtual_register();
+      virtual_reg2 = UnallocatedOperand::cast(input2)->virtual_register();
+      displacement =
+          GetImmediate(ImmediateOperand::cast(instr->InputAt(2))).ToInt32();
+      output_reg = UnallocatedOperand::cast(output)->virtual_register();
+
       // map sib
       add_scale2_registers(virtual_reg, virtual_reg2);
-
       // map modrm
-      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
-      if (!get_imm(imm, displacement, this)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
       if (is_int8(displacement)) {
         add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
       } else {
@@ -162,15 +161,15 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       }
       break;
     case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      virtual_reg = UnallocatedOperand::cast(input1)->virtual_register();
+      virtual_reg2 = UnallocatedOperand::cast(input2)->virtual_register();
+      displacement =
+          GetImmediate(ImmediateOperand::cast(instr->InputAt(2))).ToInt32();
+      output_reg = UnallocatedOperand::cast(output)->virtual_register();
+
       // map sib
       add_scale4_registers(virtual_reg, virtual_reg2);
-
       // map modrm
-      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
-      if (!get_imm(imm, displacement, this)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
       if (is_int8(displacement)) {
         add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
       } else {
@@ -178,15 +177,15 @@ void InstructionSequence::add_sensitive_map(Instruction* instr) {
       }
       break;
     case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      virtual_reg = UnallocatedOperand::cast(input1)->virtual_register();
+      virtual_reg2 = UnallocatedOperand::cast(input2)->virtual_register();
+      displacement =
+          GetImmediate(ImmediateOperand::cast(instr->InputAt(2))).ToInt32();
+      output_reg = UnallocatedOperand::cast(output)->virtual_register();
+
       // map sib
       add_scale8_registers(virtual_reg, virtual_reg2);
-
       // map modrm
-      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
-      if (!get_imm(imm, displacement, this)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
       if (is_int8(displacement)) {
         add_modrm_disp8_registers_withsib(output_reg, virtual_reg);
       } else {
