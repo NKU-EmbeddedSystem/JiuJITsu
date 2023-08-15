@@ -3506,7 +3506,7 @@ void LinearScanAllocator::AllocateRegisters() {
   spill_count = 0;
   code()->construct_sensitive_map();
 #ifdef DEBUG
-  /* code()->print_restricted_maps(); */
+  code()->print_restricted_maps();
 #endif
 
   SplitAndSpillRangesDefinedByMemoryOperand();
@@ -3799,7 +3799,7 @@ void InstructionSequence::set_assigned_register(Instruction* instr,
                          is_int8(displacement) ? 1 : 2);
       } else if (output == op) {
         if (!get_virtual_reg(input1, virtual_reg)) break;
-        add_v2p_register(phisical_reg, virtual_reg,
+        add_v2p_register(virtual_reg, phisical_reg,
                          is_int8(displacement) ? 1 : 2);
       }
       break;
@@ -3812,7 +3812,7 @@ void InstructionSequence::set_assigned_register(Instruction* instr,
       uint32_t scale = mode - kMode_MR1I;
       if (input1 == op) {
         if (!get_virtual_reg(input2, virtual_reg2)) break;
-        add_v2p_register(phisical_reg, virtual_reg2, scale);
+        add_v2p_register(virtual_reg2, phisical_reg, scale);
       } else if (input2 == op) {
         if (!get_virtual_reg(input1, virtual_reg)) break;
         add_p2v_register(phisical_reg, virtual_reg, scale);
@@ -3833,13 +3833,17 @@ void InstructionSequence::set_assigned_register(Instruction* instr,
     case kMode_Root:
       break;
   }
+
+#ifdef DEBUG
+  print_pairs();
+#endif  // DEBUG
 }
 
 // 比较麻烦的地方在于如果scale是1,
 // index或者reg是0b011(r11或者rbx)，不管base是什么都会是gadget
 bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
-  return true;
-#if false
+  /* return true; */
+  /* #if false */
   uint32_t index = Register::from_code(preg).low_bits();
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
   if (index == 0b011 && sensitive_registers.count(vreg)) {
@@ -3900,7 +3904,7 @@ bool InstructionSequence::check_allocate(uint32_t vreg, uint32_t preg) {
   }
 
   return true;
-#endif
+  /* #endif */
 }
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,

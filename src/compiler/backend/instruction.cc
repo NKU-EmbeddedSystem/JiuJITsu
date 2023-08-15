@@ -13,6 +13,7 @@
 #include "src/codegen/interface-descriptors.h"
 #include "src/codegen/register-configuration.h"
 #include "src/codegen/source-position.h"
+#include "src/codegen/x64/register-x64.h"
 #include "src/common/globals.h"
 #include "src/compiler/backend/instruction-codes.h"
 #include "src/compiler/common-operator.h"
@@ -84,7 +85,6 @@ std::unordered_set<uint8_t>& InstructionSequence::invalid_modrms =
         0xcc,  // int3
         0xf1,  // int1
         0x0f,  // syscall prefix
-
     };
 
 // 如果前一个操作数是固定寄存器怎么办呢，要不先不考虑固定的了
@@ -110,6 +110,7 @@ bool InstructionSequence::get_imm(InstructionOperand* op, int32_t& imm) {
   return true;
 }
 
+// check self pairs, modrm register and scale = 1 && op1 register
 void InstructionSequence::add_sensitive_map(Instruction* instr) {
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
@@ -207,39 +208,50 @@ uint8_t InstructionSequence::gen_sib(uint8_t scale, uint8_t index,
   return (scale << 6) + (index << 3) + base;
 }
 
-#ifdef false
-
-void InstructionSequence::print_restricted_maps() {
+void InstructionSequence::print_pairs() {
 #ifdef DEBUG
-  DEBUG_PRINT("print map\n");
-  DEBUG_PRINT("1-byte\n");
+  DEBUG_PRINT("print pairs\n");
   for (int i = 0; i < 4; ++i) {
-    DEBUG_PRINT("mod %d\n", i);
-    for (auto& pairs : restricted_maps1[i]) {
-      DEBUG_PRINT("v%d", pairs.first);
-      DEBUG_PRINT(" ->");
-      for (auto& reg : pairs.second) {
-        DEBUG_PRINT("v%d ", reg);
+    for (const auto& pairs : sib_pairs[i]) {
+      for (auto reg : pairs.second) {
+        DEBUG_PRINT("%d, v%d, %s\n", i, pairs.first,
+                    RegisterName(Register::from_code(reg)));
       }
-      DEBUG_PRINT("\n");
     }
   }
-  DEBUG_PRINT("\n");
-  DEBUG_PRINT("2-byte\n");
-  for (int i = 1; i <= 2; ++i) {
-    DEBUG_PRINT("mod %d\n", i);
-    for (auto& pairs : restricted_maps2[i]) {
-      DEBUG_PRINT("v%d", pairs.first);
-      DEBUG_PRINT(" ->");
-      for (auto& reg : pairs.second) {
-        DEBUG_PRINT("v%d ", reg);
+  for (int i = 0; i < 4; ++i) {
+    for (const auto& pairs : sib_pairsre[i]) {
+      for (auto reg : pairs.second) {
+        DEBUG_PRINT("%d, %s, v%d\n", i, RegisterName(Register::from_code(reg)),
+                    pairs.first);
       }
-      DEBUG_PRINT("\n");
     }
   }
 #endif
 }
-#endif  // DEBUG
+
+void InstructionSequence::print_restricted_maps() {
+#ifdef DEBUG
+  // self pairs
+  for (int i = 0; i < 4; ++i) {
+    for (auto reg : self_pairs[i]) {
+      DEBUG_PRINT("%d, v%d, v%d\n", i, reg, reg);
+    }
+  }
+
+  // modrm
+  for (int i = 0; i < 4; ++i) {
+    for (auto reg : modrm_registers[i]) {
+      DEBUG_PRINT("%d, v%d, 0b100\n", i, reg);
+    }
+  }
+
+  // op1
+  for (auto reg : sensitive_registers) {
+    DEBUG_PRINT("1, v%d, *\n", reg);
+  }
+#endif
+}
 
 const RegisterConfiguration* (*GetRegConfig)() = RegisterConfiguration::Default;
 

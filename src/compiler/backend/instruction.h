@@ -1739,7 +1739,8 @@ class V8_EXPORT_PRIVATE InstructionSequence final
 
   // 检查分配产生的modr/m或者sib是否合法
   bool check_allocate(uint32_t vreg, uint32_t preg);
-  /* void print_restricted_maps(); */
+  void print_restricted_maps();
+  void print_pairs();
 
  private:
   friend V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
