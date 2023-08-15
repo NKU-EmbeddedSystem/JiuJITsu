@@ -634,9 +634,7 @@ class V8_EXPORT_PRIVATE LiveRange : public NON_EXPORTED_BASE(ZoneObject) {
     return FirstHintPosition(&register_index);
   }
 
-  UsePosition* current_hint_position() const {
-    return current_hint_position_;
-  }
+  UsePosition* current_hint_position() const { return current_hint_position_; }
 
   LifetimePosition Start() const {
     DCHECK(!IsEmpty());
@@ -1476,6 +1474,11 @@ class LinearScanAllocator final : public RegisterAllocator {
   bool PickRegisterThatIsAvailableLongest(
       LiveRange* current, int hint_reg,
       const Vector<LifetimePosition>& free_until_pos, int& reg);
+  bool PickRegisterThatIsAvailableLongestforBlocked(
+      LiveRange* current, int hint_reg,
+      const Vector<LifetimePosition>& free_until_pos, int& reg,
+      const Vector<LifetimePosition>& block_pos);
+
   bool TryAllocateFreeReg(LiveRange* range,
                           const Vector<LifetimePosition>& free_until_pos);
   bool TryAllocatePreferredReg(LiveRange* range,
@@ -1501,7 +1504,8 @@ class LinearScanAllocator final : public RegisterAllocator {
                          SpillMode spill_mode);
   void SplitAndSpillIntersecting(LiveRange* range, SpillMode spill_mode);
 
-  int SplitRRange(LiveRange *current, const Vector <LifetimePosition> &free_until_pos);
+  int SplitRRange(LiveRange* current,
+                  const Vector<LifetimePosition>& free_until_pos);
 
   void PrintRangeRow(std::ostream& os, const TopLevelLiveRange* toplevel);
 
@@ -1520,8 +1524,7 @@ class LinearScanAllocator final : public RegisterAllocator {
 #ifdef DEBUG
   LifetimePosition allocation_finger_;
 #endif
-
-  };
+};
 
 class OperandAssigner final : public ZoneObject {
  public:
