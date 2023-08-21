@@ -17,6 +17,7 @@
 #include "src/base/small-vector.h"
 #include "src/codegen/assembler-inl.h"
 #include "src/codegen/tick-counter.h"
+#include "src/common/globals.h"
 #include "src/compiler/backend/instruction-codes.h"
 #include "src/compiler/backend/instruction.h"
 #include "src/compiler/backend/spill-placer.h"
@@ -3513,6 +3514,7 @@ void LinearScanAllocator::AllocateRegisters() {
   spill_count = 0;
   construct_sensitive_map();
 #ifdef DEBUG
+  /* code()->Print(); */
   print_pairs();
 #endif
 
@@ -3860,6 +3862,82 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
   if (instr->InputCount() >= 4) {
+    return;
+    /* fprintf(stderr, "too many inputs in inst "); */
+    /* instr->Print(); */
+    /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
+  }
+  InstructionOperand* output = instr->OutputCount()
+                                   ? instr->Output()
+                                   : instr->InputAt(instr->InputCount() - 1);
+  InstructionOperand* input1 = instr->InputAt(0);
+  InstructionOperand* input2 =
+      instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
+  ImmediateOperand* imm = nullptr;
+  int32_t displacement = 0;
+  uint32_t output_reg, virtual_reg;
+  uint32_t virtual_reg2;
+
+  switch (mode) {
+    case kMode_M1I:
+    case kMode_M2I:
+    case kMode_M4I:
+    case kMode_M8I:
+      break;
+    case kMode_MRI:  // leal rax,[rbx - 0x3d]
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (!get_imm(input2, displacement)) break;
+      // mod为disp的长度, reg和rm为output和input
+      // 判断一下disp的长度
+      // map[input1] = output
+      if (is_int8(displacement)) {
+        add_mod_pairs(1, output_reg, virtual_reg, index);
+      } else {
+        add_mod_pairs(2, output_reg, virtual_reg, index);
+      }
+      DEBUG_PRINT("add v%d->v%d\n", output_reg, virtual_reg);
+      break;
+    case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
+    case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
+    case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
+    case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
+      /* DEBUG_PRINT("HERE!!\n"); */
+      /* instr->Print(); */
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      // map sib
+      add_sib_pairs(mode - kMode_MR1I, virtual_reg, virtual_reg2, index);
+
+      // map modrm
+      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
+      if (!get_imm(imm, displacement)) break;
+      if (!get_virtual_reg(output, output_reg)) break;
+      if (is_int8(displacement)) {
+        add_mod_registers(1, output_reg, index);
+      } else {
+        add_mod_registers(2, output_reg, index);
+      }
+      break;
+
+    case kMode_None:
+    case kMode_M1:
+    case kMode_M2:
+    case kMode_M4:
+    case kMode_M8:
+    case kMode_MR:
+    case kMode_MR1:
+    case kMode_MR2:
+    case kMode_MR4:
+    case kMode_MR8:
+    case kMode_Root:
+      break;
+  }
+#if false
+  Instruction* instr = instructions->InstructionAt(index);
+  AddressingMode mode = instr->addressing_mode();
+  if (sensitive_modes.count(mode) == 0) return;
+  if (instr->InputCount() >= 4) {
     // branch instruction cmp rax, 16, branch 1, else 2
     /* fprintf(stderr, "too many inputs in inst\n"); */
     /* instr->Print(); */
@@ -3923,6 +4001,8 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
       int v1, v2;
       v1 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
       v2 = UnallocatedOperand::cast(instr->InputAt(1))->virtual_register();
+      DEBUG_PRINT("here\n");
+      instr->Print();
       add_sib_pairs(mode - kMode_MR1I, v1, v2, index);
 
       // map modrm
@@ -3955,6 +4035,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
     case kMode_Root:
       break;
   }
+#endif
 }
 
 void LinearScanAllocator::construct_sensitive_map() {
@@ -4141,9 +4222,9 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
               if (invalid_codes.count(code)) return false;
               continue;
             }
-            uint32_t index = preg;
-            uint32_t base = get_v2p_regs(vreg, reg.first);
-            if (base == kUnassignedRegister) continue;
+            uint32_t base = preg;
+            uint32_t index = get_v2p_regs(reg.second, reg.first);
+            if (index == kUnassignedRegister) continue;
             uint8_t code = gen_sib(i, index, base);
             if (invalid_codes.count(code)) return false;
           }
@@ -4162,9 +4243,9 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
                 LifetimePosition::InstructionFromInstructionIndex(reg.first);
             if (position < current->Start() || position > tempend) continue;
 
-            uint32_t base = preg;
-            uint32_t index = get_v2p_regs(vreg, reg.first);
-            if (index == kUnassignedRegister) continue;
+            uint32_t index = preg;
+            uint32_t base = get_v2p_regs(reg.second, reg.first);
+            if (base == kUnassignedRegister) continue;
             uint8_t code = gen_sib(i, index, base);
             if (invalid_codes.count(code)) return false;
           }
@@ -4242,9 +4323,9 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
               if (invalid_codes.count(code)) return false;
               continue;
             }
-            uint32_t index = preg;
-            uint32_t base = get_v2p_regs(vreg, reg.first);
-            if (base == kUnassignedRegister) continue;
+            uint32_t base = preg;
+            uint32_t index = get_v2p_regs(reg.second, reg.first);
+            if (index == kUnassignedRegister) continue;
             uint8_t code = gen_sib(i, index, base);
             if (invalid_codes.count(code)) return false;
           }
@@ -4264,8 +4345,8 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
             if (position < current->Start() || position > current->End())
               continue;
 
-            uint32_t base = preg;
-            uint32_t index = get_v2p_regs(vreg, reg.first);
+            uint32_t index = preg;
+            uint32_t base = get_v2p_regs(reg.second, reg.first);
             if (index == kUnassignedRegister) continue;
             uint8_t code = gen_sib(i, index, base);
             if (invalid_codes.count(code)) return false;
