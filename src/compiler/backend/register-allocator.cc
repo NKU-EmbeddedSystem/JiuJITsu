@@ -4177,7 +4177,7 @@ uint32_t LinearScanAllocator::get_v2p_regs(uint32_t vreg, int index) {
   /* position.Print(); */
   /* range->Print(true); */
   while (range) {
-    if (position >= range->Start()) {
+    if (position >= range->Start() && position <= range->End()) {
       return range->assigned_register();
     }
     range = range->next();
