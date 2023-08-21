@@ -1571,6 +1571,8 @@ class LinearScanAllocator final : public RegisterAllocator {
 
   // 检查分配产生的modr/m或者sib是否合法
   bool check_allocate(LiveRange* current, uint32_t preg);
+  bool check_allocate_until(LiveRange* current, uint32_t preg,
+                            LifetimePosition position);
   /* void print_restricted_maps(); */
   void print_pairs();
 

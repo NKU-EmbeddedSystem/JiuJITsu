@@ -4090,8 +4090,8 @@ uint32_t LinearScanAllocator::get_v2p_regs(uint32_t vreg, int index) {
   LiveRange* range = data()->live_ranges()[vreg];
   LifetimePosition position =
       LifetimePosition::InstructionFromInstructionIndex(index);
-  position.Print();
-  range->Print(true);
+  /* position.Print(); */
+  /* range->Print(true); */
   while (range) {
     if (position >= range->Start()) {
       return range->assigned_register();
@@ -4100,6 +4100,104 @@ uint32_t LinearScanAllocator::get_v2p_regs(uint32_t vreg, int index) {
   }
   UNREACHABLE();
   return -1;
+}
+
+bool LinearScanAllocator::check_allocate_until(LiveRange* current,
+                                               uint32_t preg,
+                                               LifetimePosition tempend) {
+  uint32_t vreg = current->TopLevel()->vreg();
+  uint32_t index = preg;
+  // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
+  if (index == 0b011) {
+    if (sib_pairs[1].count(vreg)) {
+      for (auto reg : sib_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= tempend) return false;
+      }
+    }
+    if (modrm_pairs[1].count(vreg)) {
+      for (auto reg : modrm_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= tempend) return false;
+      }
+    }
+  }
+
+  auto check =
+      [&](std::unordered_map<uint32_t,
+                             std::vector<std::pair<uint32_t, uint32_t>>>
+              pairs[4],
+          const std::unordered_set<uint8_t>& invalid_codes) {
+        for (int i = 0; i < 4; ++i) {
+          if (pairs[i].count(vreg) == 0) continue;
+          for (const auto& reg : pairs[i][vreg]) {
+            LifetimePosition position =
+                LifetimePosition::InstructionFromInstructionIndex(reg.first);
+            if (position < current->Start() || position > tempend) continue;
+            if (reg.second == vreg) {
+              uint8_t code = gen_sib(i, preg, preg);
+              if (invalid_codes.count(code)) return false;
+              continue;
+            }
+            uint32_t index = preg;
+            uint32_t base = get_v2p_regs(vreg, reg.first);
+            if (base == kUnassignedRegister) continue;
+            uint8_t code = gen_sib(i, index, base);
+            if (invalid_codes.count(code)) return false;
+          }
+        }
+        return true;
+      };
+  auto check_re =
+      [&](std::unordered_map<uint32_t,
+                             std::vector<std::pair<uint32_t, uint32_t>>>
+              pairs[4],
+          const std::unordered_set<uint8_t>& invalid_codes) {
+        for (int i = 0; i < 4; ++i) {
+          if (pairs[i].count(vreg) == 0) continue;
+          for (const auto& reg : pairs[i][vreg]) {
+            LifetimePosition position =
+                LifetimePosition::InstructionFromInstructionIndex(reg.first);
+            if (position < current->Start() || position > tempend) continue;
+
+            uint32_t base = preg;
+            uint32_t index = get_v2p_regs(vreg, reg.first);
+            if (index == kUnassignedRegister) continue;
+            uint8_t code = gen_sib(i, index, base);
+            if (invalid_codes.count(code)) return false;
+          }
+        }
+        return true;
+      };
+
+  // check sib bytes
+  if (!check(sib_pairs, invalid_sibs)) return false;
+  if (!check_re(sib_pairsre, invalid_sibs)) return false;
+  if (!check(modrm_pairs, invalid_modrms)) return false;
+  if (!check_re(modrm_pairsre, invalid_modrms)) return false;
+
+  // check modrm 2-byte, rm is 0b100
+  uint32_t rm = 0b100;
+  uint32_t reg = preg;
+  for (int i = 1; i <= 2; ++i) {
+    if (modrm_registers[i].count(vreg) == 0) continue;
+    for (auto location : modrm_registers[i][vreg]) {
+      LifetimePosition position =
+          LifetimePosition::InstructionFromInstructionIndex(location);
+      if (position < current->Start() || position > tempend) continue;
+      uint8_t code = gen_sib(i, reg, rm);
+      if (invalid_modrms.count(code) > 0) {
+        DEBUG_PRINT("%d, %s gen invalid code %x at %d\n", i, RegisterName(reg),
+                    code, position.value());
+        return false;
+      }
+      break;
+    }
+  }
+
+  return true;
 }
 
 // 比较麻烦的地方在于如果scale是1,
@@ -4184,7 +4282,7 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
 
   // check modrm 2-byte, rm is 0b100
   uint32_t rm = 0b100;
-  uint32_t reg = vreg;
+  uint32_t reg = preg;
   for (int i = 1; i <= 2; ++i) {
     if (modrm_registers[i].count(vreg) == 0) continue;
     for (auto location : modrm_registers[i][vreg]) {
@@ -4617,192 +4715,41 @@ extern bool get_imm(InstructionOperand* op, int32_t& imm,
 
 int LinearScanAllocator::SplitRRange(
     LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
-  /*   uint32_t virtual_reg = current->TopLevel()->vreg(); */
-  /*   InstructionSequence* instructions = code(); */
-  /*   UsePosition* register_use =
-   * current->NextRegisterPosition(current->Start()); */
-  /*   std::vector<std::pair<uint8_t, std::pair<uint32_t, uint32_t>>> */
-  /*       removing_pairs1; */
-  /*   std::vector<std::pair<uint8_t, std::pair<uint32_t, uint32_t>>> */
-  /*       removing_pairs2; */
-  /**/
-  /*   // erase the map and reverse map */
-  /*   auto erase_sensitive_map1 = [&](const int& output_reg, const int&
-   * input_reg, */
-  /*                                   uint8_t scale) { */
-  /*     instructions->restricted_maps1[scale][output_reg].erase(input_reg); */
-  /*     instructions->rev_restricted_maps1[scale][input_reg].erase(output_reg);
-   */
-  /*     removing_pairs1.emplace_back( */
-  /*         std::pair<uint8_t, std::pair<uint32_t, uint32_t>>( */
-  /*             scale, std::pair<uint32_t, uint32_t>(output_reg, input_reg)));
-   */
-  /*   }; */
-  /*   auto erase_sensitive_map2 = [&](const int& output_reg, const int&
-   * input_reg, */
-  /*                                   uint8_t scale) { */
-  /*     instructions->restricted_maps2[scale][output_reg].erase(input_reg); */
-  /*     instructions->rev_restricted_maps2[scale][input_reg].erase(output_reg);
-   */
-  /*     removing_pairs2.emplace_back( */
-  /*         std::pair<uint8_t, std::pair<uint32_t, uint32_t>>( */
-  /*             scale, std::pair<uint32_t, uint32_t>(output_reg, input_reg)));
-   */
-  /*   }; */
-  /**/
-  /*   // reverse the use position */
-  /*   std::vector<UsePosition*> stack; */
-  /*   while (register_use) { */
-  /*     stack.emplace_back(register_use); */
-  /**/
-  /*     register_use = register_use->next(); */
-  /*     while (register_use && */
-  /*            register_use->type() != UsePositionType::kRequiresRegister) */
-  /*       register_use = register_use->next(); */
-  /*   } */
-  /**/
-  /*   // removing the pairs from end to begin until some register is available
-   */
-  /*   int reg; */
-  /*   int i = static_cast<int>(stack.size() - 1); */
-  /*   for (; i >= 0; --i) { */
-  /*     int instr_index = stack[i]->pos().ToInstructionIndex(); */
-  /*     Instruction* instr = instructions->InstructionAt(instr_index); */
-  /*     int32_t displacement; */
-  /*     uint32_t output_reg, input_reg; */
-  /*     InstructionOperand* output = instr->OutputCount() */
-  /*                                      ? instr->Output() */
-  /*                                      : instr->InputAt(instr->InputCount() -
-   * 1); */
-  /*     InstructionOperand* input1 = instr->InputAt(0); */
-  /*     InstructionOperand* input2 = */
-  /*         instr->InputCount() > 1 ? instr->InputAt(1) : nullptr; */
-  /*     AddressingMode mode = AddressingModeField::decode(instr->opcode()); */
-  /*     switch (mode) { */
-  /*       case kMode_None: */
-  /*       case kMode_MR: */
-  /*         break; */
-  /*       case kMode_MRI: */
-  /*         // map modrm */
-  /* #define MR_REG                                                         \ */
-  /*   {                                                                    \ */
-  /*     get_imm(input2, displacement, instructions);                       \ */
-  /*     input_reg = UnallocatedOperand::cast(input1)->virtual_register();  \ */
-  /*     output_reg = UnallocatedOperand::cast(output)->virtual_register(); \ */
-  /*     if (is_int8(displacement)) {                                       \ */
-  /*       erase_sensitive_map1(output_reg, input_reg, 1);                  \ */
-  /*     } else {                                                           \ */
-  /*       erase_sensitive_map1(output_reg, input_reg, 2);                  \ */
-  /*     }                                                                  \ */
-  /*   } */
-  /*         MR_REG */
-  /*         break; */
-  /*       case kMode_MR1: */
-  /*       case kMode_MR2: */
-  /*       case kMode_MR4: */
-  /*       case kMode_MR8: */
-  /*         break; */
-  /* #define MRS_REG                                                        \ */
-  /*   {                                                                    \ */
-  /*     output_reg = UnallocatedOperand::cast(input1)->virtual_register(); \ */
-  /*     input_reg = UnallocatedOperand::cast(input2)->virtual_register();  \ */
-  /*     if (output_reg != virtual_reg && input_reg != virtual_reg) {       \ */
-  /*       break;                                                           \ */
-  /*     }                                                                  \ */
-  /*   } */
-  /* #define UNMAP_MODRM                                                    \ */
-  /*   {                                                                    \ */
-  /*     input_reg = output_reg;                                            \ */
-  /*     output_reg = UnallocatedOperand::cast(output)->virtual_register(); \ */
-  /*     get_imm(instr->InputAt(2), displacement, instructions);            \ */
-  /*     if (is_int8(displacement)) {                                       \ */
-  /*       erase_sensitive_map2(output_reg, input_reg, 1);                  \ */
-  /*     } else {                                                           \ */
-  /*       erase_sensitive_map2(output_reg, input_reg, 2);                  \ */
-  /*     }                                                                  \ */
-  /*   } */
-  /*       case kMode_MR1I: */
-  /*         MRS_REG */
-  /*         // unmap sib */
-  /*         erase_sensitive_map1(output_reg, input_reg, 0); */
-  /*         UNMAP_MODRM */
-  /*         break; */
-  /*       case kMode_MR2I: */
-  /*         MRS_REG */
-  /*         erase_sensitive_map1(output_reg, input_reg, 1); */
-  /*         UNMAP_MODRM */
-  /*         break; */
-  /*       case kMode_MR4I: */
-  /*         MRS_REG */
-  /*         erase_sensitive_map1(output_reg, input_reg, 2); */
-  /*         UNMAP_MODRM */
-  /*         break; */
-  /*       case kMode_MR8I: */
-  /*         MRS_REG */
-  /*         erase_sensitive_map1(output_reg, input_reg, 3); */
-  /*         UNMAP_MODRM */
-  /*         break; */
-  /*       case kMode_M1: */
-  /*       case kMode_M2: */
-  /*       case kMode_M4: */
-  /*       case kMode_M8: */
-  /*       case kMode_M1I: */
-  /*       case kMode_M2I: */
-  /*       case kMode_M4I: */
-  /*       case kMode_M8I: */
-  /*       case kMode_Root: */
-  /*         break; */
-  /*     } */
-  /*     if (PickRegisterThatIsAvailableLongest(current, -1, free_until_pos,
-   * reg)) { */
-  /*       LiveRange* tail = SplitRangeAt(current, register_use->pos()); */
-  /*       // don't know the tail is equal to now */
-  /*       uint32_t new_vreg = tail->TopLevel()->vreg(); */
-  /*       fprintf(stderr, "old reg : v%d\tnew reg : v%d\n", virtual_reg,
-   * new_vreg); */
-  /*       // 为后面的live range 重建map */
-  /*       for (auto& del : removing_pairs1) { */
-  /*         if (virtual_reg == del.second.first) { */
-  /*           instructions->restricted_maps1[del.first][tail->TopLevel()->vreg()]
-   */
-  /*               .insert(del.second.second); */
-  /*           instructions->rev_restricted_maps1[del.first][del.second.second]
-   */
-  /*               .insert(tail->TopLevel()->vreg()); */
-  /*         } else { */
-  /*           instructions */
-  /*               ->rev_restricted_maps1[del.first][tail->TopLevel()->vreg()]
-   */
-  /*               .insert(del.second.second); */
-  /*           instructions->restricted_maps1[del.first][del.second.second].insert(
-   */
-  /*               tail->TopLevel()->vreg()); */
-  /*         } */
-  /*       } */
-  /*       for (auto& del : removing_pairs2) { */
-  /*         if (virtual_reg == del.second.first) { */
-  /*           instructions->restricted_maps2[del.first][tail->TopLevel()->vreg()]
-   */
-  /*               .insert(del.second.second); */
-  /*           instructions->rev_restricted_maps2[del.first][del.second.second]
-   */
-  /*               .insert(tail->TopLevel()->vreg()); */
-  /*         } else { */
-  /*           instructions */
-  /*               ->rev_restricted_maps2[del.first][tail->TopLevel()->vreg()]
-   */
-  /*               .insert(del.second.second); */
-  /*           instructions->restricted_maps2[del.first][del.second.second].insert(
-   */
-  /*               tail->TopLevel()->vreg()); */
-  /*         } */
-  /*       } */
-  /**/
-  /*       AddToUnhandled(tail); */
-  /*       return reg; */
-  /*     } */
-  /*   } */
+  LifetimePosition start = current->Start(), end = current->End();
+  int old_num_codes = num_allocatable_registers();
+  const int* old_codes = allocatable_register_codes();
+  std::vector<int> codes;
+  while (start <= end) {
+    LifetimePosition mid =
+        LifetimePosition::FromInt((start.value() + end.value()) / 2);
+    for (int i = 0; i < old_num_codes; ++i) {
+      if (check_allocate_until(current, old_codes[i], mid)) {
+        codes.emplace_back(old_codes[i]);
+      }
+    }
+    if (codes.empty()) {
+      end = LifetimePosition::FromInt(mid.value() - 1);
+      continue;
+    }
 
+    LiveRange* tail = SplitRangeAt(current, mid);
+    AddToUnhandled(tail);
+    int reg = codes[0];
+    int current_free = free_until_pos[reg].ToInstructionIndex();
+    for (size_t i = 1; i < codes.size(); ++i) {
+      int code = codes[i];
+      int candidate_free = free_until_pos[code].ToInstructionIndex();
+      if ((candidate_free > current_free) ||
+          (candidate_free == current_free &&
+           (data()->HasFixedUse(current->representation(), reg) &&
+            !data()->HasFixedUse(current->representation(), code)))) {
+        reg = code;
+        current_free = candidate_free;
+      }
+    }
+    return reg;
+  }
+  UNREACHABLE();
   // never reach here
   assert(false);
   return -1;
