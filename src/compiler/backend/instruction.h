@@ -1691,57 +1691,6 @@ class V8_EXPORT_PRIVATE InstructionSequence final
 
   void RecomputeAssemblyOrderForTesting();
 
-  // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
-  std::unordered_map<uint32_t, std::unordered_multiset<uint32_t>> sib_pairs[4];
-  std::unordered_map<uint32_t, std::unordered_multiset<uint32_t>>
-      sib_pairsre[4];
-  std::unordered_multiset<uint32_t> self_pairs[4];
-  std::unordered_multiset<uint32_t> modrm_registers[4];
-  // scale or mod == 1 && isreg or isindex
-  std::unordered_set<uint32_t> sensitive_registers;
-
-  // not allowed to be rsp, r12, rdi, r14, rsi, r15
-  //  std::unordered_set<uint32_t> op_registers;
-  // for quick search vreg to physical reg,
-  // 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
-  /* std::unordered_map<uint32_t, uint32_t> v2p_regs; */
-  // malicous byte
-  static std::unordered_set<uint8_t>& invalid_sibs;
-  static std::unordered_set<uint8_t>& invalid_modrms;
-  static std::unordered_set<ArchOpcode>& sensitive_opcodes;
-  static std::unordered_set<AddressingMode>& sensitive_modes;
-
-  static bool get_virtual_reg(InstructionOperand* op, uint32_t& reg);
-  bool get_imm(InstructionOperand* op, int32_t& imm);
-  // 构建sensitive map
-  void add_sensitive_map(Instruction* instr);
-  void set_assigned_register(Instruction* instr, InstructionOperand* op,
-                             int phisical_reg);
-  void construct_sensitive_map();
-#ifdef false
-  // sib
-  void add_scale1_registers(uint32_t reg, uint32_t res);
-  void add_scale2_registers(uint32_t reg, uint32_t res);
-  void add_scale4_registers(uint32_t reg, uint32_t res);
-  void add_scale8_registers(uint32_t reg, uint32_t res);
-  // modrm
-  // only use in modrm sib + disp instructions
-  void add_modrm_disp8_registers_withsib(uint32_t reg, uint32_t res);
-  void add_modrm_disp32_registers_withsib(uint32_t reg, uint32_t res);
-  void add_modrm_disp8_registers_wosib(uint32_t reg, uint32_t res);
-  void add_modrm_disp32_registers_wosib(uint32_t reg, uint32_t res);
-#endif
-  void add_v2p_register(uint32_t vreg, uint32_t preg, uint32_t scale);
-  void add_p2v_register(uint32_t preg, uint32_t vreg, uint32_t scale);
-  void add_modrmsib_register(uint32_t vreg, uint32_t scale);
-  /* void add_modrmsib_p2v_register(uint32_t preg, uint32_t vreg, uint32_t
-   * scale); */
-
-  // 检查分配产生的modr/m或者sib是否合法
-  bool check_allocate(uint32_t vreg, uint32_t preg);
-  void print_restricted_maps();
-  void print_pairs();
-
  private:
   friend V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
                                                     const InstructionSequence&);
@@ -1769,7 +1718,6 @@ class V8_EXPORT_PRIVATE InstructionSequence final
   DeoptimizationVector deoptimization_entries_;
   // Used at construction time
   InstructionBlock* current_block_;
-  static uint8_t gen_sib(uint8_t scale, uint8_t index, uint8_t base);
 };
 
 V8_EXPORT_PRIVATE std::ostream& operator<<(std::ostream&,
