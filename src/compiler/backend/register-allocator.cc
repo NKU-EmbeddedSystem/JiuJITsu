@@ -5,17 +5,24 @@
 
 #include "src/compiler/backend/register-allocator.h"
 
+#include <cstdint>
 #include <cstdio>
 #include <iomanip>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "src/base/iterator.h"
+#include "src/base/logging.h"
 #include "src/base/small-vector.h"
 #include "src/codegen/assembler-inl.h"
 #include "src/codegen/tick-counter.h"
+#include "src/compiler/backend/instruction-codes.h"
 #include "src/compiler/backend/instruction.h"
 #include "src/compiler/backend/spill-placer.h"
 #include "src/compiler/linkage.h"
 #include "src/strings/string-stream.h"
+#include "src/utils/utils.h"
 #include "src/utils/vector.h"
 
 namespace v8 {
@@ -3114,8 +3121,7 @@ void LinearScanAllocator::ReloadLiveRanges(
     TopLevelLiveRange* range = range_with_register.range;
     int reg = range_with_register.expected_register;
     // error code, we continue
-    if (reg != kUnassignedRegister &&
-        !check_allocate(range->TopLevel()->vreg(), reg)) {
+    if (reg != kUnassignedRegister && !check_allocate(range, reg)) {
       reg = kUnassignedRegister;
     }
 
@@ -3507,7 +3513,7 @@ void LinearScanAllocator::AllocateRegisters() {
   spill_count = 0;
   construct_sensitive_map();
 #ifdef DEBUG
-  print_restricted_maps();
+  print_pairs();
 #endif
 
   SplitAndSpillRangesDefinedByMemoryOperand();
@@ -3848,25 +3854,37 @@ bool LinearScanAllocator::get_imm(InstructionOperand* op, int32_t& imm) {
 }
 
 // check self pairs, modrm register and scale = 1 && op1 register
-void LinearScanAllocator::add_sensitive_map(Instruction* instr) {
+void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
+                                            int index) {
+  Instruction* instr = instructions->InstructionAt(index);
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
   if (instr->InputCount() >= 4) {
-    return;
-    /* fprintf(stderr, "too many inputs in inst "); */
+    // branch instruction cmp rax, 16, branch 1, else 2
+    /* fprintf(stderr, "too many inputs in inst\n"); */
     /* instr->Print(); */
+    /* fprintf(stderr, "Outputs:\n"); */
+    /* for (size_t i = 0; i < instr->OutputCount(); ++i) { */
+    /*   instr->OutputAt(i)->Print(); */
+    /* } */
+    /* fprintf(stderr, "Inputs:\n"); */
+    /* for (size_t i = 0; i < instr->InputCount(); ++i) { */
+    /*   instr->InputAt(i)->Print(); */
+    /* } */
+    return;
     /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
   }
-  InstructionOperand* output = instr->OutputCount()
-                                   ? instr->Output()
-                                   : instr->InputAt(instr->InputCount() - 1);
-  InstructionOperand* input1 = instr->InputAt(0);
-  InstructionOperand* input2 =
-      instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
-  ImmediateOperand* imm = nullptr;
+  /* InstructionOperand* output = instr->OutputCount() */
+  /*                                  ? instr->Output() */
+  /*                                  : instr->InputAt(instr->InputCount() - 1);
+   */
+  /* InstructionOperand* input1 = instr->InputAt(0); */
+  /* InstructionOperand* input2 = */
+  /*     instr->InputCount() > 1 ? instr->InputAt(1) : nullptr; */
+  /* ImmediateOperand* imm = nullptr; */
   int32_t displacement = 0;
-  uint32_t output_reg, virtual_reg;
-  uint32_t virtual_reg2;
+  /* uint32_t output_reg, virtual_reg; */
+  /* uint32_t virtual_reg2; */
 
   switch (mode) {
     case kMode_M1I:
@@ -3874,23 +3892,26 @@ void LinearScanAllocator::add_sensitive_map(Instruction* instr) {
     case kMode_M4I:
     case kMode_M8I:
       break;
-    case kMode_MRI:  // leal rax,[rbx - 0x3d]
-    {
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
-      if (!get_imm(input2, displacement)) break;
-      // mod为disp的长度, reg和rm为output和input
-      // 判断一下disp的长度
-      // map[input1] = output
-      if (is_int8(displacement)) {
-        sensitive_registers.insert(virtual_reg);
+    // leal rax,[rbx - 0x3d] mod: 1, rm: rbx, reg: rax
+    case kMode_MRI: {
+      int v1, v2;
+      if (instr->InputCount() == 3) {
+        // movb [rax + 0xc3], -0x3d; mod: 1, rm: rax, reg: 0
+        // mov [rax + 0xc3], rbx
+        // input 2 is immediate but not register
+        if (instr->InputAt(2)->kind() != InstructionOperand::UNALLOCATED) break;
+        v1 = UnallocatedOperand::cast(instr->InputAt(2))->virtual_register();
+        v2 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
+        /* UNREACHABLE(); */
+      } else if (instr->InputCount() == 2) {
+        v1 = UnallocatedOperand::cast(instr->OutputAt(0))->virtual_register();
+        v2 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
+      } else {
+        UNREACHABLE();
       }
-      if (output_reg == virtual_reg) {
-        if (is_int8(displacement))
-          self_pairs[1].insert(virtual_reg);
-        else
-          self_pairs[2].insert(virtual_reg);
-      }
+      assert(get_imm(instr->InputAt(1), displacement));
+      int mod = is_int8(displacement) ? 1 : 2;
+      add_mod_pairs(mod, v1, v2, index);
       break;
     }
     case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
@@ -3898,25 +3919,27 @@ void LinearScanAllocator::add_sensitive_map(Instruction* instr) {
     case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
     case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
     {
-      uint32_t scale = mode - kMode_MR1I;
-      if (!get_virtual_reg(input1, virtual_reg)) break;
-      if (!get_virtual_reg(input2, virtual_reg2)) break;
-      if (virtual_reg == virtual_reg2) {
-        self_pairs[scale].insert(virtual_reg);
-      }
-      if (scale == 1) {
-        sensitive_registers.insert(virtual_reg);
-      }
+      // map sib
+      int v1, v2;
+      v1 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
+      v2 = UnallocatedOperand::cast(instr->InputAt(1))->virtual_register();
+      add_sib_pairs(mode - kMode_MR1I, v1, v2, index);
 
       // map modrm
-      imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
-      if (!get_imm(imm, displacement)) break;
-      if (!get_virtual_reg(output, output_reg)) break;
-      if (is_int8(displacement)) {
-        add_modrmsib_register(output_reg, 1);
+      int reg;
+      if (instr->InputCount() == 4) {
+        // movb [rax + rbx * 2 + 0xc3], 0
+        if (instr->InputAt(3)->kind() != InstructionOperand::UNALLOCATED) break;
+        // movb [rax + rbx * 2 + 0xc3], rax
+        reg = UnallocatedOperand::cast(instr->InputAt(3))->virtual_register();
+      } else if (instr->InputCount() == 3) {
+        reg = UnallocatedOperand::cast(instr->OutputAt(0))->virtual_register();
       } else {
-        add_modrmsib_register(output_reg, 2);
+        UNREACHABLE();
       }
+      assert(get_imm(instr->InputAt(2), displacement));
+      int mod = is_int8(displacement) ? 1 : 2;
+      add_mod_registers(mod, reg, index);
       break;
     }
     case kMode_None:
@@ -3937,7 +3960,7 @@ void LinearScanAllocator::add_sensitive_map(Instruction* instr) {
 void LinearScanAllocator::construct_sensitive_map() {
   InstructionSequence* instructions = code();
   for (int i = 0; i < instructions->LastInstructionIndex(); ++i) {
-    add_sensitive_map(instructions->InstructionAt(i));
+    add_sensitive_map(instructions, i);
   }
 }
 
@@ -3948,46 +3971,43 @@ uint8_t LinearScanAllocator::gen_sib(uint8_t scale, uint8_t index,
 
 void LinearScanAllocator::print_pairs() {
 #ifdef DEBUG
-  DEBUG_PRINT("print pairs\n");
+  DEBUG_PRINT("print sib pairs\n");
   for (int i = 0; i < 4; ++i) {
     for (const auto& pairs : sib_pairs[i]) {
       for (auto reg : pairs.second) {
-        DEBUG_PRINT("%d, v%d, %s\n", i, pairs.first, RegisterName(reg));
+        DEBUG_PRINT("%d, v%d, v%d at %d\n", i, pairs.first, reg.second,
+                    reg.first);
       }
     }
   }
+  DEBUG_PRINT("print modrm pairs\n");
   for (int i = 0; i < 4; ++i) {
-    for (const auto& pairs : sib_pairsre[i]) {
+    for (const auto& pairs : modrm_pairs[i]) {
       for (auto reg : pairs.second) {
-        DEBUG_PRINT("%d, %s, v%d\n", i, RegisterName(reg), pairs.first);
+        DEBUG_PRINT("%d, v%d, v%d at %d\n", i, pairs.first, reg.second,
+                    reg.first);
       }
     }
   }
 #endif
 }
 
-void LinearScanAllocator::print_restricted_maps() {
-#ifdef DEBUG
-  // self pairs
-  for (int i = 0; i < 4; ++i) {
-    for (auto reg : self_pairs[i]) {
-      DEBUG_PRINT("%d, v%d, v%d\n", i, reg, reg);
-    }
-  }
-
-  // modrm
-  for (int i = 0; i < 4; ++i) {
-    for (auto reg : modrm_registers[i]) {
-      DEBUG_PRINT("%d, v%d, 0b100\n", i, reg);
-    }
-  }
-
-  // op1
-  for (auto reg : sensitive_registers) {
-    DEBUG_PRINT("1, v%d, *\n", reg);
-  }
-#endif
-}
+/* void LinearScanAllocator::print_restricted_maps() { */
+/* #ifdef DEBUG */
+/*   // modrm */
+/*   for (int i = 0; i < 4; ++i) { */
+/*     for (auto reg : modrm_registers[i]) { */
+/*       DEBUG_PRINT("%d, v%d, 0b100\n", i, reg); */
+/*     } */
+/*   } */
+/**/
+/*   // op1 */
+/*   for (auto reg : sensitive_registers) { */
+/*     DEBUG_PRINT("1, v%d, *\n", reg); */
+/*   } */
+/* #endif */
+/* } */
+#if false
 void LinearScanAllocator::set_assigned_register(Instruction* instr,
                                                 InstructionOperand* op,
                                                 int phisical_reg) {
@@ -4063,65 +4083,117 @@ void LinearScanAllocator::set_assigned_register(Instruction* instr,
   print_pairs();
 #endif  // DEBUG
 }
+#endif
+
+// TODO: 檢查得到的寄存器是否正確
+uint32_t LinearScanAllocator::get_v2p_regs(uint32_t vreg, int index) {
+  LiveRange* range = data()->live_ranges()[vreg];
+  LifetimePosition position =
+      LifetimePosition::InstructionFromInstructionIndex(index);
+  position.Print();
+  range->Print(true);
+  while (range) {
+    if (position >= range->Start()) {
+      return range->assigned_register();
+    }
+    range = range->next();
+  }
+  UNREACHABLE();
+  return -1;
+}
 
 // 比较麻烦的地方在于如果scale是1,
 // index或者reg是0b011(r11或者rbx)，不管base是什么都会是gadget
-bool LinearScanAllocator::check_allocate(uint32_t vreg, uint32_t preg) {
-  /* return true; */
-  /* #if false */
+bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
+  uint32_t vreg = current->TopLevel()->vreg();
   uint32_t index = preg;
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
-  if (index == 0b011 && sensitive_registers.count(vreg)) {
-    return false;
-  }
-
-  // check when op1 is the same as op2
-  for (int i = 0; i < 4; ++i) {
-    if (self_pairs[i].count(vreg)) {
-      uint8_t code = gen_sib(i, preg, preg);
-      if (invalid_sibs.count(code) > 0) {
-        return false;
+  if (index == 0b011) {
+    if (sib_pairs[1].count(vreg)) {
+      for (auto reg : sib_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= current->End())
+          return false;
+      }
+    }
+    if (modrm_pairs[1].count(vreg)) {
+      for (auto reg : modrm_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= current->End())
+          return false;
       }
     }
   }
+
+  auto check =
+      [&](std::unordered_map<uint32_t,
+                             std::vector<std::pair<uint32_t, uint32_t>>>
+              pairs[4],
+          const std::unordered_set<uint8_t>& invalid_codes) {
+        for (int i = 0; i < 4; ++i) {
+          if (pairs[i].count(vreg) == 0) continue;
+          for (const auto& reg : pairs[i][vreg]) {
+            LifetimePosition position =
+                LifetimePosition::InstructionFromInstructionIndex(reg.first);
+            if (position < current->Start() || position > current->End())
+              continue;
+            if (reg.second == vreg) {
+              uint8_t code = gen_sib(i, preg, preg);
+              if (invalid_codes.count(code)) return false;
+              continue;
+            }
+            uint32_t index = preg;
+            uint32_t base = get_v2p_regs(vreg, reg.first);
+            if (base == kUnassignedRegister) continue;
+            uint8_t code = gen_sib(i, index, base);
+            if (invalid_codes.count(code)) return false;
+          }
+        }
+        return true;
+      };
+  auto check_re =
+      [&](std::unordered_map<uint32_t,
+                             std::vector<std::pair<uint32_t, uint32_t>>>
+              pairs[4],
+          const std::unordered_set<uint8_t>& invalid_codes) {
+        for (int i = 0; i < 4; ++i) {
+          if (pairs[i].count(vreg) == 0) continue;
+          for (const auto& reg : pairs[i][vreg]) {
+            LifetimePosition position =
+                LifetimePosition::InstructionFromInstructionIndex(reg.first);
+            if (position < current->Start() || position > current->End())
+              continue;
+
+            uint32_t base = preg;
+            uint32_t index = get_v2p_regs(vreg, reg.first);
+            if (index == kUnassignedRegister) continue;
+            uint8_t code = gen_sib(i, index, base);
+            if (invalid_codes.count(code)) return false;
+          }
+        }
+        return true;
+      };
 
   // check sib bytes
-  uint32_t base;
-  for (int i = 0; i < 4; ++i) {
-    if (sib_pairs[i].count(vreg) == 0) continue;
-    auto& candidate_set = sib_pairs[i][vreg];
-    for (uint32_t val : candidate_set) {
-      base = val;
-      uint8_t code = gen_sib(static_cast<uint8_t>(i), index, base);
-      if (invalid_sibs.count(code) > 0) {
-        DEBUG_PRINT("assign %s to v%d failed\n", RegisterName(preg), vreg);
-        DEBUG_PRINT("v%d:%s, %s gen code %x\n", vreg, RegisterName(index),
-                    RegisterName(base), static_cast<uint32_t>(code));
-        return false;
-      }
-    }
-  }
-  base = index;
-  for (int i = 0; i < 4; ++i) {
-    if (sib_pairsre[i].count(vreg) == 0) continue;
-    auto& candidate_set = sib_pairsre[i][vreg];
-    for (uint32_t val : candidate_set) {
-      index = val;
-      uint8_t code = gen_sib(i, index, base);
-      if (invalid_sibs.count(code)) {
-        return false;
-      }
-    }
-  }
+  if (!check(sib_pairs, invalid_sibs)) return false;
+  if (!check_re(sib_pairsre, invalid_sibs)) return false;
+  if (!check(modrm_pairs, invalid_modrms)) return false;
+  if (!check_re(modrm_pairsre, invalid_modrms)) return false;
 
   // check modrm 2-byte, rm is 0b100
   uint32_t rm = 0b100;
-  uint32_t reg = base;
+  uint32_t reg = vreg;
   for (int i = 1; i <= 2; ++i) {
     if (modrm_registers[i].count(vreg) == 0) continue;
-    uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
-    if (invalid_modrms.count(code) > 0) {
-      return false;
+    for (auto location : modrm_registers[i][vreg]) {
+      LifetimePosition position =
+          LifetimePosition::InstructionFromInstructionIndex(location);
+      if (position < current->Start() || position > current->End()) continue;
+      uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
+      if (invalid_modrms.count(code) > 0) return false;
+      break;
     }
   }
 
@@ -4129,18 +4201,18 @@ bool LinearScanAllocator::check_allocate(uint32_t vreg, uint32_t preg) {
   /* #endif */
 }
 
-void LinearScanAllocator::add_v2p_register(uint32_t vreg, uint32_t preg,
-                                           uint32_t scale) {
-  sib_pairs[scale][vreg].insert(preg);
+void LinearScanAllocator::add_sib_pairs(int scale, int v1, int v2, int index) {
+  sib_pairs[scale][v1].emplace_back(std::make_pair(index, v2));
+  sib_pairsre[scale][v2].emplace_back(std::make_pair(index, v1));
 }
 
-void LinearScanAllocator::add_p2v_register(uint32_t preg, uint32_t vreg,
-                                           uint32_t scale) {
-  sib_pairsre[scale][vreg].insert(preg);
+void LinearScanAllocator::add_mod_pairs(int scale, int v1, int v2, int index) {
+  modrm_pairs[scale][v1].emplace_back(std::make_pair(index, v2));
+  modrm_pairsre[scale][v2].emplace_back(std::make_pair(index, v1));
 }
 
-void LinearScanAllocator::add_modrmsib_register(uint32_t vreg, uint32_t scale) {
-  modrm_registers[scale].insert(vreg);
+void LinearScanAllocator::add_mod_registers(int scale, int vreg, int index) {
+  modrm_registers[scale][vreg].emplace_back(index);
 }
 
 /* void InstructionSequence::add_modrmsib_p2v_register(uint32_t preg, */
@@ -4152,21 +4224,21 @@ void LinearScanAllocator::add_modrmsib_register(uint32_t vreg, uint32_t scale) {
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
   // should remove in release
-  if (!check_allocate(range->TopLevel()->vreg(), reg)) {
+  if (!check_allocate(range, reg)) {
     code()->Print();
     /* code()->print_restricted_maps(); */
     assert(0 && "unhandled branch");
   }
 
-  UsePosition* register_use = range->first_pos();
-  while (register_use) {
-    int instr_index = register_use->pos().ToInstructionIndex();
-    auto operand = register_use->operand();
-    Instruction* instr = code()->InstructionAt(instr_index);
-    set_assigned_register(instr, operand, reg);
-    register_use = register_use->next();
-  }
-
+  /* UsePosition* register_use = range->first_pos(); */
+  /* while (register_use) { */
+  /*   int instr_index = register_use->pos().ToInstructionIndex(); */
+  /*   auto operand = register_use->operand(); */
+  /*   Instruction* instr = code()->InstructionAt(instr_index); */
+  /*   set_assigned_register(instr, operand, reg); */
+  /*   register_use = register_use->next(); */
+  /* } */
+  /**/
   DEBUG_PRINT("assign %s to v%d\n", RegisterName(reg),
               range->TopLevel()->vreg());
   data()->MarkAllocated(range->representation(), reg);
@@ -4428,7 +4500,7 @@ bool LinearScanAllocator::TryAllocatePreferredReg(
       TRACE("Assigning preferred reg %s to live range %d:%d\n",
             RegisterName(hint_register), current->TopLevel()->vreg(),
             current->relative_id());
-      if (check_allocate(current->TopLevel()->vreg(), hint_register)) {
+      if (check_allocate(current, hint_register)) {
         SetLiveRangeAssignedRegister(current, hint_register);
         return true;
       } else {
@@ -4454,10 +4526,9 @@ bool LinearScanAllocator::PickRegisterThatIsAvailableLongest(
 
   DCHECK_GE(free_until_pos.length(), old_num_codes);
 
-  int vreg = current->TopLevel()->vreg();
   std::vector<int> codes;
   for (int i = 0; i < old_num_codes; ++i) {
-    if (check_allocate(vreg, old_codes[i])) {
+    if (check_allocate(current, old_codes[i])) {
       codes.emplace_back(old_codes[i]);
     }
   }
@@ -4477,7 +4548,7 @@ bool LinearScanAllocator::PickRegisterThatIsAvailableLongest(
   // set before the call. Hence, the argument registers always get ignored,
   // as their available time is shorter.
   reg = (hint_reg == kUnassignedRegister) ? codes[0] : hint_reg;
-  if (!check_allocate(vreg, reg)) {
+  if (!check_allocate(current, reg)) {
     reg = codes[0];
   }
   int current_free = free_until_pos[reg].ToInstructionIndex();
