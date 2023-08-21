@@ -3907,7 +3907,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
       if (!get_virtual_reg(input1, virtual_reg)) break;
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
-      add_sib_pairs(mode - kMode_MR1I, virtual_reg, virtual_reg2, index);
+      add_sib_pairs(mode - kMode_MR1I, virtual_reg2, virtual_reg, index);
 
       // map modrm
       imm = static_cast<ImmediateOperand*>(instr->InputAt(2));
@@ -4047,6 +4047,9 @@ void LinearScanAllocator::construct_sensitive_map() {
 
 uint8_t LinearScanAllocator::gen_sib(uint8_t scale, uint8_t index,
                                      uint8_t base) {
+  index &= 7;
+  base &= 7;
+  scale &= 3;
   return (scale << 6) + (index << 3) + base;
 }
 
@@ -4210,54 +4213,41 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
       [&](std::unordered_map<uint32_t,
                              std::vector<std::pair<uint32_t, uint32_t>>>
               pairs[4],
-          const std::unordered_set<uint8_t>& invalid_codes) {
+          const std::unordered_set<uint8_t>& invalid_codes, bool reverse) {
         for (int i = 0; i < 4; ++i) {
           if (pairs[i].count(vreg) == 0) continue;
           for (const auto& reg : pairs[i][vreg]) {
             LifetimePosition position =
                 LifetimePosition::InstructionFromInstructionIndex(reg.first);
             if (position < current->Start() || position > tempend) continue;
-            if (reg.second == vreg) {
+            if (reverse && reg.second == vreg) {
               uint8_t code = gen_sib(i, preg, preg);
               if (invalid_codes.count(code)) return false;
               continue;
             }
-            uint32_t base = preg;
-            uint32_t index = get_v2p_regs(reg.second, reg.first);
-            if (index == kUnassignedRegister) continue;
-            uint8_t code = gen_sib(i, index, base);
-            if (invalid_codes.count(code)) return false;
-          }
-        }
-        return true;
-      };
-  auto check_re =
-      [&](std::unordered_map<uint32_t,
-                             std::vector<std::pair<uint32_t, uint32_t>>>
-              pairs[4],
-          const std::unordered_set<uint8_t>& invalid_codes) {
-        for (int i = 0; i < 4; ++i) {
-          if (pairs[i].count(vreg) == 0) continue;
-          for (const auto& reg : pairs[i][vreg]) {
-            LifetimePosition position =
-                LifetimePosition::InstructionFromInstructionIndex(reg.first);
-            if (position < current->Start() || position > tempend) continue;
-
-            uint32_t index = preg;
-            uint32_t base = get_v2p_regs(reg.second, reg.first);
-            if (base == kUnassignedRegister) continue;
-            uint8_t code = gen_sib(i, index, base);
-            if (invalid_codes.count(code)) return false;
+            if (reverse) {
+              uint32_t base = preg;
+              uint32_t index = get_v2p_regs(reg.second, reg.first);
+              if (index == kUnassignedRegister) continue;
+              uint8_t code = gen_sib(i, index, base);
+              if (invalid_codes.count(code)) return false;
+            } else {
+              uint32_t index = preg;
+              uint32_t base = get_v2p_regs(reg.second, reg.first);
+              if (base == kUnassignedRegister) continue;
+              uint8_t code = gen_sib(i, index, base);
+              if (invalid_codes.count(code)) return false;
+            }
           }
         }
         return true;
       };
 
   // check sib bytes
-  if (!check(sib_pairs, invalid_sibs)) return false;
-  if (!check_re(sib_pairsre, invalid_sibs)) return false;
-  if (!check(modrm_pairs, invalid_modrms)) return false;
-  if (!check_re(modrm_pairsre, invalid_modrms)) return false;
+  if (!check(sib_pairs, invalid_sibs, false)) return false;
+  if (!check(sib_pairsre, invalid_sibs, true)) return false;
+  if (!check(modrm_pairs, invalid_modrms, false)) return false;
+  if (!check(modrm_pairsre, invalid_modrms, true)) return false;
 
   // check modrm 2-byte, rm is 0b100
   uint32_t rm = 0b100;
@@ -4284,100 +4274,7 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
 // 比较麻烦的地方在于如果scale是1,
 // index或者reg是0b011(r11或者rbx)，不管base是什么都会是gadget
 bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
-  uint32_t vreg = current->TopLevel()->vreg();
-  uint32_t index = preg;
-  // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
-  if (index == 0b011) {
-    if (sib_pairs[1].count(vreg)) {
-      for (auto reg : sib_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= current->End())
-          return false;
-      }
-    }
-    if (modrm_pairs[1].count(vreg)) {
-      for (auto reg : modrm_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= current->End())
-          return false;
-      }
-    }
-  }
-
-  auto check =
-      [&](std::unordered_map<uint32_t,
-                             std::vector<std::pair<uint32_t, uint32_t>>>
-              pairs[4],
-          const std::unordered_set<uint8_t>& invalid_codes) {
-        for (int i = 0; i < 4; ++i) {
-          if (pairs[i].count(vreg) == 0) continue;
-          for (const auto& reg : pairs[i][vreg]) {
-            LifetimePosition position =
-                LifetimePosition::InstructionFromInstructionIndex(reg.first);
-            if (position < current->Start() || position > current->End())
-              continue;
-            if (reg.second == vreg) {
-              uint8_t code = gen_sib(i, preg, preg);
-              if (invalid_codes.count(code)) return false;
-              continue;
-            }
-            uint32_t base = preg;
-            uint32_t index = get_v2p_regs(reg.second, reg.first);
-            if (index == kUnassignedRegister) continue;
-            uint8_t code = gen_sib(i, index, base);
-            if (invalid_codes.count(code)) return false;
-          }
-        }
-        return true;
-      };
-  auto check_re =
-      [&](std::unordered_map<uint32_t,
-                             std::vector<std::pair<uint32_t, uint32_t>>>
-              pairs[4],
-          const std::unordered_set<uint8_t>& invalid_codes) {
-        for (int i = 0; i < 4; ++i) {
-          if (pairs[i].count(vreg) == 0) continue;
-          for (const auto& reg : pairs[i][vreg]) {
-            LifetimePosition position =
-                LifetimePosition::InstructionFromInstructionIndex(reg.first);
-            if (position < current->Start() || position > current->End())
-              continue;
-
-            uint32_t index = preg;
-            uint32_t base = get_v2p_regs(reg.second, reg.first);
-            if (index == kUnassignedRegister) continue;
-            uint8_t code = gen_sib(i, index, base);
-            if (invalid_codes.count(code)) return false;
-          }
-        }
-        return true;
-      };
-
-  // check sib bytes
-  if (!check(sib_pairs, invalid_sibs)) return false;
-  if (!check_re(sib_pairsre, invalid_sibs)) return false;
-  if (!check(modrm_pairs, invalid_modrms)) return false;
-  if (!check_re(modrm_pairsre, invalid_modrms)) return false;
-
-  // check modrm 2-byte, rm is 0b100
-  uint32_t rm = 0b100;
-  uint32_t reg = preg;
-  for (int i = 1; i <= 2; ++i) {
-    if (modrm_registers[i].count(vreg) == 0) continue;
-    for (auto location : modrm_registers[i][vreg]) {
-      LifetimePosition position =
-          LifetimePosition::InstructionFromInstructionIndex(location);
-      if (position < current->Start() || position > current->End()) continue;
-      uint8_t code = gen_sib(static_cast<uint8_t>(i), reg, rm);
-      if (invalid_modrms.count(code) > 0) return false;
-      break;
-    }
-  }
-
-  return true;
-  /* #endif */
+  return check_allocate_until(current, preg, current->End());
 }
 
 void LinearScanAllocator::add_sib_pairs(int scale, int v1, int v2, int index) {
@@ -4796,24 +4693,28 @@ extern bool get_imm(InstructionOperand* op, int32_t& imm,
 
 int LinearScanAllocator::SplitRRange(
     LiveRange* current, const Vector<LifetimePosition>& free_until_pos) {
-  LifetimePosition start = current->Start(), end = current->End();
+  int start = current->Start().ToInstructionIndex(),
+      end = current->End().ToInstructionIndex();
   int old_num_codes = num_allocatable_registers();
   const int* old_codes = allocatable_register_codes();
   std::vector<int> codes;
   while (start <= end) {
-    LifetimePosition mid =
-        LifetimePosition::FromInt((start.value() + end.value()) / 2);
+    int mid = (start + end) / 2;
     for (int i = 0; i < old_num_codes; ++i) {
-      if (check_allocate_until(current, old_codes[i], mid)) {
+      if (check_allocate_until(
+              current, old_codes[i],
+              LifetimePosition::InstructionFromInstructionIndex(mid))) {
         codes.emplace_back(old_codes[i]);
       }
     }
     if (codes.empty()) {
-      end = LifetimePosition::FromInt(mid.value() - 1);
+      end = mid - 1;
       continue;
     }
 
-    LiveRange* tail = SplitRangeAt(current, mid);
+    // 避免start == end，split没有效果
+    LiveRange* tail = SplitRangeAt(
+        current, LifetimePosition::InstructionFromInstructionIndex(mid + 1));
     AddToUnhandled(tail);
     int reg = codes[0];
     int current_free = free_until_pos[reg].ToInstructionIndex();
