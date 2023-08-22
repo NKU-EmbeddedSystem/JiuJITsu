@@ -4050,7 +4050,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
 
 void LinearScanAllocator::construct_sensitive_map() {
   InstructionSequence* instructions = code();
-  for (int i = 0; i < instructions->LastInstructionIndex(); ++i) {
+  for (int i = instructions->LastInstructionIndex() - 1; i >= 0; --i) {
     add_sensitive_map(instructions, i);
   }
 }
