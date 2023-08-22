@@ -3782,8 +3782,11 @@ std::unordered_set<ArchOpcode>& LinearScanAllocator::sensitive_opcodes =
         kX64Movb,  kX64Movl,  kX64Movq, kX64Movw,  kX64Lea,    kX64Lea32};
 
 std::unordered_set<AddressingMode>& LinearScanAllocator::sensitive_modes =
-    *new std::unordered_set<AddressingMode>{kMode_MR1I, kMode_MR2I, kMode_MR4I,
-                                            kMode_MR8I, kMode_MRI};
+    *new std::unordered_set<AddressingMode>{
+        kMode_MR1I, kMode_MR2I, kMode_MR4I, kMode_MR8I, kMode_MRI,
+        kMode_M1,   kMode_M2,   kMode_M4,   kMode_M8,   kMode_MR1,
+        kMode_MR2,  kMode_MR4,  kMode_MR8,
+    };
 
 // sib + disp
 // modrm + disp
@@ -3920,17 +3923,24 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
       }
       break;
 
-    case kMode_None:
     case kMode_M1:
     case kMode_M2:
     case kMode_M4:
     case kMode_M8:
     case kMode_MR:
+      break;
     case kMode_MR1:
     case kMode_MR2:
     case kMode_MR4:
     case kMode_MR8:
+      // movb [rax + rbx * 2], 0xc3
+      if (output->kind() != InstructionOperand::IMMEDIATE) break;
+      if (!get_virtual_reg(input1, virtual_reg)) break;
+      if (!get_virtual_reg(input2, virtual_reg2)) break;
+      add_sib_pairs(mode - kMode_MR1, virtual_reg2, virtual_reg, index);
+      break;
     case kMode_Root:
+    case kMode_None:
       break;
   }
 #if false
@@ -4194,21 +4204,19 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
   if ((index & 7) == 0b011) {
     if (sib_pairs[1].count(vreg)) {
-      /* for (auto reg : sib_pairs[1][vreg]) { */
-      /*   LifetimePosition position = */
-      /*       LifetimePosition::InstructionFromInstructionIndex(reg.first); */
-      /*   if (position >= current->Start() && position <= tempend) return
-       * false; */
-      /* } */
+      for (auto reg : sib_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= tempend) return false;
+      }
       return false;
     }
     if (modrm_pairs[1].count(vreg)) {
-      /* for (auto reg : modrm_pairs[1][vreg]) { */
-      /*   LifetimePosition position = */
-      /*       LifetimePosition::InstructionFromInstructionIndex(reg.first); */
-      /*   if (position >= current->Start() && position <= tempend) return
-       * false; */
-      /* } */
+      for (auto reg : modrm_pairs[1][vreg]) {
+        LifetimePosition position =
+            LifetimePosition::InstructionFromInstructionIndex(reg.first);
+        if (position >= current->Start() && position <= tempend) return false;
+      }
       return false;
     }
   }
