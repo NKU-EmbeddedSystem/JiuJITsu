@@ -4192,20 +4192,24 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
   uint32_t vreg = current->TopLevel()->vreg();
   uint32_t index = preg;
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
-  if (index == 0b011) {
+  if ((index & 7) == 0b011) {
     if (sib_pairs[1].count(vreg)) {
-      for (auto reg : sib_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= tempend) return false;
-      }
+      /* for (auto reg : sib_pairs[1][vreg]) { */
+      /*   LifetimePosition position = */
+      /*       LifetimePosition::InstructionFromInstructionIndex(reg.first); */
+      /*   if (position >= current->Start() && position <= tempend) return
+       * false; */
+      /* } */
+      return false;
     }
     if (modrm_pairs[1].count(vreg)) {
-      for (auto reg : modrm_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= tempend) return false;
-      }
+      /* for (auto reg : modrm_pairs[1][vreg]) { */
+      /*   LifetimePosition position = */
+      /*       LifetimePosition::InstructionFromInstructionIndex(reg.first); */
+      /*   if (position >= current->Start() && position <= tempend) return
+       * false; */
+      /* } */
+      return false;
     }
   }
 
@@ -4698,12 +4702,13 @@ int LinearScanAllocator::SplitRRange(
   int old_num_codes = num_allocatable_registers();
   const int* old_codes = allocatable_register_codes();
   std::vector<int> codes;
-  while (start <= end) {
+  while (start < end) {
     int mid = (start + end) / 2;
+    if (mid == start) break;
+    LifetimePosition split_pos =
+        LifetimePosition::InstructionFromInstructionIndex(mid);
     for (int i = 0; i < old_num_codes; ++i) {
-      if (check_allocate_until(
-              current, old_codes[i],
-              LifetimePosition::InstructionFromInstructionIndex(mid))) {
+      if (check_allocate_until(current, old_codes[i], split_pos)) {
         codes.emplace_back(old_codes[i]);
       }
     }
@@ -4712,9 +4717,13 @@ int LinearScanAllocator::SplitRRange(
       continue;
     }
 
+    DEBUG_PRINT("[split] before: %d->%d\n", current->Start().value(),
+                current->End().value());
     // 避免start == end，split没有效果
-    LiveRange* tail = SplitRangeAt(
-        current, LifetimePosition::InstructionFromInstructionIndex(mid + 1));
+    LiveRange* tail = SplitRangeAt(current, split_pos);
+    DEBUG_PRINT("[split] after: %d->%d, %d->%d\n", current->Start().value(),
+                current->End().value(), tail->Start().value(),
+                tail->End().value());
     AddToUnhandled(tail);
     int reg = codes[0];
     int current_free = free_until_pos[reg].ToInstructionIndex();
@@ -4731,10 +4740,40 @@ int LinearScanAllocator::SplitRRange(
     }
     return reg;
   }
-  UNREACHABLE();
-  // never reach here
-  assert(false);
-  return -1;
+
+  DEBUG_PRINT("[split] before: %d->%d\n", current->Start().value(),
+              current->End().value());
+  LifetimePosition split_pos =
+      LifetimePosition::InstructionFromInstructionIndex(start + 1);
+  LiveRange* tail = SplitRangeAt(current, split_pos);
+  AddToUnhandled(tail);
+  DEBUG_PRINT("[split] after: %d->%d, %d->%d\n", current->Start().value(),
+              current->End().value(), tail->Start().value(),
+              tail->End().value());
+
+  for (int i = 0; i < old_num_codes; ++i) {
+    if (check_allocate_until(current, old_codes[i], current->End())) {
+      codes.emplace_back(old_codes[i]);
+    }
+  }
+  if (codes.empty()) {
+    UNREACHABLE();
+  }
+
+  int reg = codes[0];
+  int current_free = free_until_pos[reg].ToInstructionIndex();
+  for (size_t i = 1; i < codes.size(); ++i) {
+    int code = codes[i];
+    int candidate_free = free_until_pos[code].ToInstructionIndex();
+    if ((candidate_free > current_free) ||
+        (candidate_free == current_free &&
+         (data()->HasFixedUse(current->representation(), reg) &&
+          !data()->HasFixedUse(current->representation(), code)))) {
+      reg = code;
+      current_free = candidate_free;
+    }
+  }
+  return reg;
 }
 
 void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
