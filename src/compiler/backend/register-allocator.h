@@ -6,6 +6,7 @@
 #define V8_COMPILER_BACKEND_REGISTER_ALLOCATOR_H_
 
 #include <cstdint>
+#include <unordered_set>
 #include <utility>
 
 #include "src/base/bits.h"
@@ -1524,16 +1525,16 @@ class LinearScanAllocator final : public RegisterAllocator {
   LifetimePosition next_inactive_ranges_change_;
   int spill_count;
   // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
-  std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>
+  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
       sib_pairs[4];
-  std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>
+  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
       sib_pairsre[4];
-  std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>
+  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
       modrm_pairs[4];
-  std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>
+  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
       modrm_pairsre[4];
   // 3-byte modrm sib
-  std::unordered_map<int, std::vector<int>> modrm_registers[4];
+  std::unordered_multiset<LiveRange*> modrm_registers[4];
   /* std::unordered_multiset<uint32_t> self_pairs[4]; */
   /* std::unordered_multiset<uint32_t> modrm_registers[4]; */
   // scale or mod == 1 && isreg or isindex
@@ -1551,6 +1552,7 @@ class LinearScanAllocator final : public RegisterAllocator {
   static std::unordered_set<AddressingMode>& sensitive_modes;
 
   uint32_t get_v2p_regs(uint32_t vreg, int index);
+  LiveRange* vreg2liverange(uint32_t vreg, int index);
   static uint8_t gen_sib(uint8_t scale, uint8_t index, uint8_t base);
   static bool get_virtual_reg(InstructionOperand* op, uint32_t& reg);
   bool get_imm(InstructionOperand* op, int32_t& imm);
@@ -1560,9 +1562,9 @@ class LinearScanAllocator final : public RegisterAllocator {
                              int phisical_reg);
   void construct_sensitive_map();
 
-  void add_sib_pairs(int scale, int v1, int v2, int index);
-  void add_mod_pairs(int scale, int v1, int v2, int index);
-  void add_mod_registers(int scale, int vreg, int index);
+  void add_sib_pairs(int scale, LiveRange* v1, LiveRange* v2);
+  void add_mod_pairs(int scale, LiveRange* v1, LiveRange* v2);
+  void add_mod_registers(int scale, LiveRange* vreg);
   /* void add_v2p_register(uint32_t vreg, uint32_t preg, uint32_t scale); */
   /* void add_p2v_register(uint32_t preg, uint32_t vreg, uint32_t scale); */
   /* void add_modrmpairs_register(uint32_t vreg, uint32_t scale); */
@@ -1570,9 +1572,8 @@ class LinearScanAllocator final : public RegisterAllocator {
    * scale); */
 
   // 检查分配产生的modr/m或者sib是否合法
+  /* bool check_allocate(LiveRange* current, uint32_t preg); */
   bool check_allocate(LiveRange* current, uint32_t preg);
-  bool check_allocate_until(LiveRange* current, uint32_t preg,
-                            LifetimePosition position);
   /* void print_restricted_maps(); */
   void print_pairs();
 
