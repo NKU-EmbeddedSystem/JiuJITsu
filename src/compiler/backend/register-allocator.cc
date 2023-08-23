@@ -2783,6 +2783,7 @@ void RegisterAllocator::SplitAndSpillRangesDefinedByMemoryOperand() {
 
 LiveRange* RegisterAllocator::SplitRangeAt(LiveRange* range,
                                            LifetimePosition pos) {
+  // range被split以后，要把属于新range的部分放进新的range中
   DCHECK(!range->TopLevel()->IsFixed());
   TRACE("Splitting live range %d:%d at %d\n", range->TopLevel()->vreg(),
         range->relative_id(), pos.value());
@@ -3512,19 +3513,19 @@ void LinearScanAllocator::AllocateRegisters() {
     DCHECK(inactive_live_ranges(reg).empty());
   }
 
-  spill_count = 0;
-  construct_sensitive_map();
-#ifdef DEBUG
-  /* code()->Print(); */
-  print_pairs();
-#endif
-
   SplitAndSpillRangesDefinedByMemoryOperand();
   data()->ResetSpillState();
 
   if (data()->is_trace_alloc()) {
     PrintRangeOverview(std::cout);
   }
+
+  spill_count = 0;
+  construct_sensitive_map();
+#ifdef DEBUG
+  /* code()->Print(); */
+  print_pairs();
+#endif
 
   const size_t live_ranges_size = data()->live_ranges().size();
   for (TopLevelLiveRange* range : data()->live_ranges()) {
@@ -4221,6 +4222,93 @@ LiveRange* LinearScanAllocator::vreg2liverange(uint32_t vreg, int index) {
   return nullptr;
 }
 
+bool rangesIntersect(LiveRange* left, LiveRange* right) {
+  return ((left->Start() <= right->Start() && left->End() >= right->Start()) ||
+          (right->Start() <= left->Start() && right->End() >= left->Start()));
+}
+
+// 需要一起考虑reverse map
+void updatePairs(
+    std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>& pairs,
+    std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>&
+        pairsre,
+    LiveRange* range, LiveRange* result) {
+  if (pairs.count(range) == 0) return;
+  for (LiveRange* other : pairs[range]) {
+    if (!rangesIntersect(range, other)) {
+      pairs[result].insert(other);
+      DEBUG_PRINT("v%d has been moved to v%d:%d\n", other->TopLevel()->vreg(),
+                  result->TopLevel()->vreg(), result->relative_id());
+    }
+  }
+
+  DEBUG_PRINT("%ld elements have been moved\n", pairs[result].size());
+  for (LiveRange* other : pairs[result]) {
+    pairs[range].erase(other);
+    pairsre[other].erase(range);
+    pairsre[other].insert(result);
+  }
+}
+
+void LinearScanAllocator::updateRangeAfterSplit(LiveRange* range,
+                                                LiveRange* result) {
+  for (int i = 0; i < 4; ++i) {
+    updatePairs(sib_pairs[i], sib_pairsre[i], range, result);
+    updatePairs(sib_pairsre[i], sib_pairs[i], range, result);
+    updatePairs(modrm_pairs[i], modrm_pairsre[i], range, result);
+    updatePairs(modrm_pairsre[i], modrm_pairs[i], range, result);
+  }
+}
+
+LiveRange* LinearScanAllocator::SplitRangeAt(LiveRange* range,
+                                             LifetimePosition pos) {
+  LiveRange* result = RegisterAllocator::SplitRangeAt(range, pos);
+  if (result != range) updateRangeAfterSplit(range, result);
+  return result;
+}
+
+/* LiveRange* LinearScanAllocator::SplitRangeAt(LiveRange* range, */
+/*                                              LifetimePosition pos) { */
+/*   // range被split以后，要把属于新range的部分放进新的range中 */
+/*   LiveRange* result = RegisterAllocator::SplitRangeAt(range, pos); */
+/*   auto check_intersection = [](LiveRange* left, LiveRange* right) { */
+/*     return ( */
+/*         (left->Start() <= right->Start() && left->End() >= right->Start()) ||
+ */
+/*         (right->Start() <= left->Start() && right->End() >= left->Start()));
+ */
+/*   }; */
+/**/
+/*   // 还需要从其它人那里删除自己 */
+/*   auto reset_pairs = */
+/*       [&](std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
+ */
+/*               pairs[4]) { */
+/*         for (int i = 0; i < 4; ++i) { */
+/*           if (pairs[i].count(range) == 0) continue; */
+/*           for (LiveRange* other : pairs[i][range]) { */
+/*             if (!check_intersection(range, other)) { */
+/*               pairs[i][result].insert(other); */
+/*               pairs[i][other].erase(range); */
+/*               pairs[i][other].insert(result); */
+/*             } */
+/*           } */
+/*         } */
+/*         for (int i = 0; i < 4; ++i) { */
+/*           if (pairs[i].count(result) == 0) continue; */
+/*           DEBUG_PRINT("size: %ld\n", pairs[i][result].size()); */
+/*           for (LiveRange* other : pairs[i][result]) { */
+/*             pairs[i][range].erase(other); */
+/*           } */
+/*         } */
+/*       }; */
+/*   reset_pairs(sib_pairs); */
+/*   reset_pairs(sib_pairsre); */
+/*   reset_pairs(modrm_pairs); */
+/*   reset_pairs(modrm_pairsre); */
+/*   return result; */
+/* } */
+
 bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
   uint32_t index = preg;
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
@@ -4292,6 +4380,8 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
 
 void LinearScanAllocator::add_sib_pairs(int scale, LiveRange* v1,
                                         LiveRange* v2) {
+  DEBUG_PRINT("adding pairs %d, v%d:%p, v%d:%p\n", scale,
+              v1->TopLevel()->vreg(), v1, v2->TopLevel()->vreg(), v2);
   sib_pairs[scale][v1].insert(v2);
   sib_pairsre[scale][v2].insert(v1);
 }
@@ -4316,22 +4406,14 @@ void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
   // should remove in release
   if (!check_allocate(range, reg)) {
+    fprintf(stderr, "unhandled branch!!\n");
     code()->Print();
     /* code()->print_restricted_maps(); */
     assert(0 && "unhandled branch");
   }
 
-  /* UsePosition* register_use = range->first_pos(); */
-  /* while (register_use) { */
-  /*   int instr_index = register_use->pos().ToInstructionIndex(); */
-  /*   auto operand = register_use->operand(); */
-  /*   Instruction* instr = code()->InstructionAt(instr_index); */
-  /*   set_assigned_register(instr, operand, reg); */
-  /*   register_use = register_use->next(); */
-  /* } */
-  /**/
-  DEBUG_PRINT("assign %s to v%d\n", RegisterName(reg),
-              range->TopLevel()->vreg());
+  DEBUG_PRINT("assign %s to v%d:%d\n", RegisterName(reg),
+              range->TopLevel()->vreg(), range->relative_id());
   data()->MarkAllocated(range->representation(), reg);
   range->set_assigned_register(reg);
   range->SetUseHints(reg);

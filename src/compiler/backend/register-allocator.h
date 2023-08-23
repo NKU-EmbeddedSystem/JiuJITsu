@@ -1443,6 +1443,8 @@ class LinearScanAllocator final : public RegisterAllocator {
     return inactive_live_ranges_[reg];
   }
 
+  LiveRange* SplitRangeAt(LiveRange* range, LifetimePosition pos);
+  void updateRangeAfterSplit(LiveRange* range, LiveRange* result);
   void SetLiveRangeAssignedRegister(LiveRange* range, int reg);
 
   // Helper methods for updating the life range lists.
