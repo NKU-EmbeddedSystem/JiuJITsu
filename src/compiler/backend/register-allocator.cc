@@ -3987,6 +3987,7 @@ uint8_t LinearScanAllocator::gen_sib(uint8_t scale, uint8_t index,
 }
 
 void LinearScanAllocator::print_pairs() {
+#ifdef DEBUG
   DEBUG_PRINT("print sib pairs\n");
   for (int i = 0; i < 4; ++i) {
     for (const auto& pairs : sib_pairs[i]) {
@@ -4005,6 +4006,7 @@ void LinearScanAllocator::print_pairs() {
       }
     }
   }
+#endif  // DEBUG
 }
 
 // TODO: 檢查得到的寄存器是否正確
