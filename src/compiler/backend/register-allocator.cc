@@ -3520,6 +3520,7 @@ void LinearScanAllocator::AllocateRegisters() {
 
   spill_count = 0;
   construct_sensitive_map();
+
 #ifdef DEBUG
   /* code()->Print(); */
   print_pairs();
@@ -3774,67 +3775,85 @@ void LinearScanAllocator::AllocateRegisters() {
 
 // movsd may be too complex because its syntax is not portable with other
 // instructions
-std::unordered_set<ArchOpcode>& LinearScanAllocator::sensitive_opcodes =
-    *new std::unordered_set<ArchOpcode>{
-        kX64Add,   kX64Add32, kX64And,  kX64And32, kX64Cmp,    kX64Cmp32,
-        kX64Cmp16, kX64Cmp8,  kX64Or,   kX64Or32,  kX64Sub,    kX64Sub32,
-        kX64Xor,   kX64Xor32, kX64Test, kX64Test8, kX64Test16, kX64Test32,
-        kX64Movb,  kX64Movl,  kX64Movq, kX64Movw,  kX64Lea,    kX64Lea32};
+uint8_t LinearScanAllocator::sensitive_modes[32] = {
+    0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
-std::unordered_set<AddressingMode>& LinearScanAllocator::sensitive_modes =
-    *new std::unordered_set<AddressingMode>{
-        kMode_MR1I, kMode_MR2I, kMode_MR4I, kMode_MR8I, kMode_MRI,
-        kMode_M1,   kMode_M2,   kMode_M4,   kMode_M8,   kMode_MR1,
-        kMode_MR2,  kMode_MR4,  kMode_MR8,
-    };
+uint8_t LinearScanAllocator::invalid_sibs[256] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
+uint8_t LinearScanAllocator::invalid_modrms[256] = {
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+};
 
 // sib + disp
 // modrm + disp
-std::unordered_set<uint8_t>& LinearScanAllocator::invalid_sibs =
-    *new std::unordered_set<uint8_t>{
-        0x58,  // pop rax
-        0x59,  // pop rcx
-        0x5a,  // pop rdx
-        0x5b,  // pop rbx
-        0x5c,  // pop rsp
-        0x5e,  // pop rsi
-        0x5f,  // pop rdi
-        0xa4,  // movsb [rdi],[rsi]
-        0xa6,  // cmpsb [rsi],[rdi]
-        0xa7,  // cmpsd [rsi],[rdi]
-        0xc3,  // ret
-        0xcc,  // int3
-        0xf1,  // int1
-        0x0f,  // syscall prefix
-    };
-// modrm + sib + disp
-// modrm + sib + invalid disp
-std::unordered_set<uint8_t>& LinearScanAllocator::invalid_modrms =
-    *new std::unordered_set<uint8_t>{
-        // 2-byte
-        0x74,  // je 12345679h
-        0x7c,  // jl 12345679h
-        0x84,  // test bh,bh
-        0x8c,  // mov edi,fs
-        0xa4,  // movsb [rdi],[rsi]
-        0xb4,  // mov ah,0FFh
-        // 1-byte
-        0x58,  // pop rax
-        0x59,  // pop rcx
-        0x5a,  // pop rdx
-        0x5b,  // pop rbx
-        0x5c,  // pop rsp
-        0x5e,  // pop rsi
-        0x5f,  // pop rdi
-        0xa4,  // movsb [rdi],[rsi]
-        0xa6,  // cmpsb [rsi],[rdi]
-        0xa7,  // cmpsd [rsi],[rdi]
-        0xc3,  // ret
-        0xcc,  // int3
-        0xf1,  // int1
-        0x0f,  // syscall prefix
-    };
-
+/* std::unordered_set<uint8_t>& LinearScanAllocator::invalid_sibs = */
+/*     *new std::unordered_set<uint8_t>{ */
+/*         0x58,  // pop rax */
+/*         0x59,  // pop rcx */
+/*         0x5a,  // pop rdx */
+/*         0x5b,  // pop rbx */
+/*         0x5c,  // pop rsp */
+/*         0x5e,  // pop rsi */
+/*         0x5f,  // pop rdi */
+/*         0xa4,  // movsb [rdi],[rsi] */
+/*         0xa6,  // cmpsb [rsi],[rdi] */
+/*         0xa7,  // cmpsd [rsi],[rdi] */
+/*         0xc3,  // ret */
+/*         0xcc,  // int3 */
+/*         0xf1,  // int1 */
+/*         0x0f,  // syscall prefix */
+/*     }; */
+/* // modrm + sib + disp */
+/* // modrm + sib + invalid disp */
+/* std::unordered_set<uint8_t>& LinearScanAllocator::invalid_modrms = */
+/*     *new std::unordered_set<uint8_t>{ */
+/*         // 2-byte */
+/*         0x74,  // je 12345679h */
+/*         0x7c,  // jl 12345679h */
+/*         0x84,  // test bh,bh */
+/*         0x8c,  // mov edi,fs */
+/*         0xa4,  // movsb [rdi],[rsi] */
+/*         0xb4,  // mov ah,0FFh */
+/*         // 1-byte */
+/*         0x58,  // pop rax */
+/*         0x59,  // pop rcx */
+/*         0x5a,  // pop rdx */
+/*         0x5b,  // pop rbx */
+/*         0x5c,  // pop rsp */
+/*         0x5e,  // pop rsi */
+/*         0x5f,  // pop rdi */
+/*         0xa4,  // movsb [rdi],[rsi] */
+/*         0xa6,  // cmpsb [rsi],[rdi] */
+/*         0xa7,  // cmpsd [rsi],[rdi] */
+/*         0xc3,  // ret */
+/*         0xcc,  // int3 */
+/*         0xf1,  // int1 */
+/*         0x0f,  // syscall prefix */
+/*     }; */
+/**/
 // 如果前一个操作数是固定寄存器怎么办呢，要不先不考虑固定的了
 bool LinearScanAllocator::get_virtual_reg(InstructionOperand* op,
                                           uint32_t& reg) {
@@ -3863,7 +3882,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
                                             int index) {
   Instruction* instr = instructions->InstructionAt(index);
   AddressingMode mode = instr->addressing_mode();
-  if (sensitive_modes.count(mode) == 0) return;
+  if (sensitive_modes[mode] == 0) return;
   if (instr->InputCount() >= 4) {
     return;
     /* fprintf(stderr, "too many inputs in inst "); */
@@ -4322,13 +4341,13 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
   auto check =
       [&](std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
               pairs[4],
-          const std::unordered_set<uint8_t>& invalid_codes, bool reverse) {
+          const uint8_t invalid_codes[256], bool reverse) {
         for (int i = 0; i < 4; ++i) {
           if (pairs[i].count(current) == 0) continue;
           for (const auto& reg : pairs[i][current]) {
             if (reverse && reg == current) {
               uint8_t code = gen_sib(i, preg, preg);
-              if (invalid_codes.count(code)) return false;
+              if (invalid_codes[code]) return false;
               continue;
             }
             if (reverse) {
@@ -4336,13 +4355,13 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
               uint32_t index = reg->assigned_register();
               if (index == kUnassignedRegister) continue;
               uint8_t code = gen_sib(i, index, base);
-              if (invalid_codes.count(code)) return false;
+              if (invalid_codes[code]) return false;
             } else {
               uint32_t index = preg;
               uint32_t base = reg->assigned_register();
               if (base == kUnassignedRegister) continue;
               uint8_t code = gen_sib(i, index, base);
-              if (invalid_codes.count(code)) return false;
+              if (invalid_codes[code]) return false;
             }
           }
         }
@@ -4361,7 +4380,7 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
   for (int i = 1; i <= 2; ++i) {
     if (modrm_registers[i].count(current) == 0) continue;
     uint8_t code = gen_sib(i, reg, rm);
-    if (invalid_modrms.count(code) > 0) {
+    if (invalid_modrms[code]) {
       return false;
     }
   }

@@ -1548,10 +1548,11 @@ class LinearScanAllocator final : public RegisterAllocator {
   // 不需要纠结是什么寄存器，只需要知道前置寄存器的编码就可以了.
   /* std::unordered_map<uint32_t, std::vector<uint32_t>> v2p_regs; */
   // malicous byte
-  static std::unordered_set<uint8_t>& invalid_sibs;
-  static std::unordered_set<uint8_t>& invalid_modrms;
-  static std::unordered_set<ArchOpcode>& sensitive_opcodes;
-  static std::unordered_set<AddressingMode>& sensitive_modes;
+  /* static std::unordered_set<uint8_t>& invalid_sibs; */
+  /* static std::unordered_set<uint8_t>& invalid_modrms; */
+  static uint8_t invalid_sibs[256];
+  static uint8_t invalid_modrms[256];
+  static uint8_t sensitive_modes[32];
 
   uint32_t get_v2p_regs(uint32_t vreg, int index);
   LiveRange* vreg2liverange(uint32_t vreg, int index);
