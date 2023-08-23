@@ -1527,13 +1527,10 @@ class LinearScanAllocator final : public RegisterAllocator {
   LifetimePosition next_inactive_ranges_change_;
   int spill_count;
   // 4 map [scale]/[mod][vreg] := vreg1, vreg2, vreg3
-  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
-      sib_pairs[4];
-  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
-      sib_pairsre[4];
-  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
-      modrm_pairs[4];
-  std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
+  std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>> sib_pairs[4];
+  std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>> sib_pairsre[4];
+  std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>> modrm_pairs[4];
+  std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>>
       modrm_pairsre[4];
   // 3-byte modrm sib
   std::unordered_multiset<LiveRange*> modrm_registers[4];

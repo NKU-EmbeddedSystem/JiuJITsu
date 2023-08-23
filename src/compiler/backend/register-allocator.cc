@@ -4239,31 +4239,42 @@ LiveRange* LinearScanAllocator::vreg2liverange(uint32_t vreg, int index) {
   return nullptr;
 }
 
-bool rangesIntersect(LiveRange* left, LiveRange* right) {
-  return ((left->Start() <= right->Start() && left->End() >= right->Start()) ||
-          (right->Start() <= left->Start() && right->End() >= left->Start()));
-}
+/* bool rangesIntersect(LiveRange* left, LiveRange* right) { */
+/*   return ((left->Start() <= right->Start() && left->End() >= right->Start())
+ * || */
+/*           (right->Start() <= left->Start() && right->End() >=
+ * left->Start())); */
+/* } */
 
 // 需要一起考虑reverse map
 void updatePairs(
-    std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>& pairs,
-    std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>&
-        pairsre,
+    std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>>& pairs,
+    std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>>& pairsre,
     LiveRange* range, LiveRange* result) {
   if (pairs.count(range) == 0) return;
+  std::unordered_set<LiveRange*> deleted;
   for (LiveRange* other : pairs[range]) {
-    if (!rangesIntersect(range, other)) {
+    if (other->FirstIntersection(range) == LifetimePosition::Invalid()) {
+      DEBUG_PRINT("v%d:%d not intersect with v%d:%d, removed\n",
+                  range->TopLevel()->vreg(), range->relative_id(),
+                  other->TopLevel()->vreg(), other->relative_id());
+      deleted.insert(other);
+      /* pairs[range].erase(other); */
+      pairsre[other].erase(range);
+    }
+    if (other->FirstIntersection(result) != LifetimePosition::Invalid()) {
+      DEBUG_PRINT("v%d:%d intersect with v%d:%d, adding\n",
+                  result->TopLevel()->vreg(), result->relative_id(),
+                  other->TopLevel()->vreg(), other->relative_id());
       pairs[result].insert(other);
-      DEBUG_PRINT("v%d has been moved to v%d:%d\n", other->TopLevel()->vreg(),
-                  result->TopLevel()->vreg(), result->relative_id());
+      pairsre[other].insert(result);
+      /* DEBUG_PRINT("v%d has been moved to v%d:%d\n",
+       * other->TopLevel()->vreg(), */
+      /*             result->TopLevel()->vreg(), result->relative_id()); */
     }
   }
-
-  DEBUG_PRINT("%ld elements have been moved\n", pairs[result].size());
-  for (LiveRange* other : pairs[result]) {
+  for (LiveRange* other : deleted) {
     pairs[range].erase(other);
-    pairsre[other].erase(range);
-    pairsre[other].insert(result);
   }
 }
 
@@ -4339,7 +4350,7 @@ bool LinearScanAllocator::check_allocate(LiveRange* current, uint32_t preg) {
   }
 
   auto check =
-      [&](std::unordered_map<LiveRange*, std::unordered_multiset<LiveRange*>>
+      [&](std::unordered_map<LiveRange*, std::unordered_set<LiveRange*>>
               pairs[4],
           const uint8_t invalid_codes[256], bool reverse) {
         for (int i = 0; i < 4; ++i) {
@@ -4622,8 +4633,8 @@ void LinearScanAllocator::FindFreeRegistersForRange(
     for (LiveRange* cur_inactive : inactive_live_ranges(cur_reg)) {
       DCHECK_GT(cur_inactive->End(), range->Start());
       CHECK_EQ(cur_inactive->assigned_register(), cur_reg);
-      // No need to carry out intersections, when this register won't be
-      // interesting to this range anyway.
+      // No need to carry out intersections, when this register
+      // won't be interesting to this range anyway.
       // TODO(mtrofin): extend to aliased ranges, too.
       if ((kSimpleFPAliasing || !check_fp_aliasing()) &&
           positions[cur_reg] <= cur_inactive->NextStart()) {
@@ -4680,7 +4691,8 @@ bool LinearScanAllocator::TryAllocatePreferredReg(
       current->FirstHintPosition(&hint_register) != nullptr ||
       current->RegisterFromBundle(&hint_register)) {
     TRACE(
-        "Found reg hint %s (free until [%d) for live range %d:%d (end %d[).\n",
+        "Found reg hint %s (free until [%d) for live range %d:%d (end "
+        "%d[).\n",
         RegisterName(hint_register), free_until_pos[hint_register].value(),
         current->TopLevel()->vreg(), current->relative_id(),
         current->End().value());
@@ -4951,8 +4963,8 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
       DCHECK_EQ(range->assigned_register(), cur_reg);
       bool is_fixed = range->TopLevel()->IsFixed();
 
-      // Don't perform costly intersections if they are guaranteed to not update
-      // block_pos or use_pos.
+      // Don't perform costly intersections if they are guaranteed
+      // to not update block_pos or use_pos.
       // TODO(mtrofin): extend to aliased ranges, too.
       if ((kSimpleFPAliasing || !check_fp_aliasing())) {
         DCHECK_LE(use_pos[cur_reg], block_pos[cur_reg]);
@@ -5031,8 +5043,8 @@ void LinearScanAllocator::AllocateBlockedReg(LiveRange* current,
   // We couldn't spill until the next register use. Split before the register
   // is blocked, if applicable.
   if (block_pos[reg] < new_end) {
-    // Register becomes blocked before the current range end. Split before that
-    // position.
+    // Register becomes blocked before the current range end. Split before
+    // that position.
     new_end = block_pos[reg].Start();
   }
 
@@ -5093,14 +5105,15 @@ void LinearScanAllocator::SplitAndSpillIntersecting(LiveRange* current,
     if (next_pos == nullptr) {
       SpillAfter(range, spill_pos, spill_mode);
     } else {
-      // When spilling between spill_pos and next_pos ensure that the range
-      // remains spilled at least until the start of the current live range.
-      // This guarantees that we will not introduce new unhandled ranges that
-      // start before the current range as this violates allocation invariants
-      // and will lead to an inconsistent state of active and inactive
-      // live-ranges: ranges are allocated in order of their start positions,
-      // ranges are retired from active/inactive when the start of the
-      // current live-range is larger than their end.
+      // When spilling between spill_pos and next_pos ensure that
+      // the range remains spilled at least until the start of the
+      // current live range. This guarantees that we will not
+      // introduce new unhandled ranges that start before the
+      // current range as this violates allocation invariants and
+      // will lead to an inconsistent state of active and inactive
+      // live-ranges: ranges are allocated in order of their start
+      // positions, ranges are retired from active/inactive when the
+      // start of the current live-range is larger than their end.
       DCHECK(LifetimePosition::ExistsGapPositionBetween(current->Start(),
                                                         next_pos->pos()));
       SpillBetweenUntil(range, spill_pos, current->Start(), next_pos->pos(),
@@ -5273,20 +5286,24 @@ void OperandAssigner::DecideSpillingMode() {
     data()->tick_counter()->TickAndMaybeEnterSafepoint();
     int max_blocks = data()->code()->InstructionBlockCount();
     if (range != nullptr && range->IsSpilledOnlyInDeferredBlocks(data())) {
-      // If the range is spilled only in deferred blocks and starts in
-      // a non-deferred block, we transition its representation here so
-      // that the LiveRangeConnector processes them correctly. If,
-      // however, they start in a deferred block, we uograde them to
-      // spill at definition, as that definition is in a deferred block
-      // anyway. While this is an optimization, the code in LiveRangeConnector
-      // relies on it!
+      // If the range is spilled only in deferred blocks and starts
+      // in a non-deferred block, we transition its representation
+      // here so that the LiveRangeConnector processes them
+      // correctly. If, however, they start in a deferred block, we
+      // uograde them to spill at definition, as that definition is
+      // in a deferred block anyway. While this is an optimization,
+      // the code in LiveRangeConnector relies on it!
       if (GetInstructionBlock(data()->code(), range->Start())->IsDeferred()) {
-        TRACE("Live range %d is spilled and alive in deferred code only\n",
-              range->vreg());
+        TRACE(
+            "Live range %d is spilled and alive in deferred code "
+            "only\n",
+            range->vreg());
         range->TransitionRangeToSpillAtDefinition();
       } else {
-        TRACE("Live range %d is spilled deferred code only but alive outside\n",
-              range->vreg());
+        TRACE(
+            "Live range %d is spilled deferred code only but alive "
+            "outside\n",
+            range->vreg());
         range->TransitionRangeToDeferredSpill(data()->allocation_zone(),
                                               max_blocks);
       }
@@ -5352,20 +5369,22 @@ void OperandAssigner::CommitAssignment() {
     }
 
     if (!spill_operand.IsInvalid()) {
-      // If this top level range has a child spilled in a deferred block, we use
-      // the range and control flow connection mechanism instead of spilling at
-      // definition. Refer to the ConnectLiveRanges and ResolveControlFlow
-      // phases. Normally, when we spill at definition, we do not insert a
-      // connecting move when a successor child range is spilled - because the
-      // spilled range picks up its value from the slot which was assigned at
-      // definition. For ranges that are determined to spill only in deferred
-      // blocks, we let ConnectLiveRanges and ResolveControlFlow find the blocks
-      // where a spill operand is expected, and then finalize by inserting the
-      // spills in the deferred blocks dominators.
+      // If this top level range has a child spilled in a deferred
+      // block, we use the range and control flow connection
+      // mechanism instead of spilling at definition. Refer to the
+      // ConnectLiveRanges and ResolveControlFlow phases. Normally,
+      // when we spill at definition, we do not insert a connecting
+      // move when a successor child range is spilled - because the
+      // spilled range picks up its value from the slot which was
+      // assigned at definition. For ranges that are determined to
+      // spill only in deferred blocks, we let ConnectLiveRanges and
+      // ResolveControlFlow find the blocks where a spill operand is
+      // expected, and then finalize by inserting the spills in the
+      // deferred blocks dominators.
       if (!top_range->IsSpilledOnlyInDeferredBlocks(data()) &&
           !top_range->HasGeneralSpillRange()) {
-        // Spill at definition if the range isn't spilled in a way that will be
-        // handled later.
+        // Spill at definition if the range isn't spilled in a way
+        // that will be handled later.
         top_range->FilterSpillMoves(data(), spill_operand);
         top_range->CommitSpillMoves(data(), spill_operand);
       }
@@ -5425,8 +5444,9 @@ void ReferenceMapPopulator::PopulateReferenceMaps() {
     if (start < last_range_start) first_it = reference_maps->begin();
     last_range_start = start;
 
-    // Step across all the safe points that are before the start of this range,
-    // recording how far we step in order to save doing this for the next range.
+    // Step across all the safe points that are before the start of this
+    // range, recording how far we step in order to save doing this for the
+    // next range.
     for (; first_it != reference_maps->end(); ++first_it) {
       ReferenceMap* map = *first_it;
       if (map->instruction_position() >= start) break;
@@ -5460,10 +5480,11 @@ void ReferenceMapPopulator::PopulateReferenceMaps() {
       LifetimePosition safe_point_pos =
           LifetimePosition::InstructionFromInstructionIndex(safe_point);
 
-      // Search for the child range (cur) that covers safe_point_pos. If we
-      // don't find it before the children pass safe_point_pos, keep cur at
-      // the last child, because the next safe_point_pos may be covered by cur.
-      // This may happen if cur has more than one interval, and the current
+      // Search for the child range (cur) that covers
+      // safe_point_pos. If we don't find it before the children
+      // pass safe_point_pos, keep cur at the last child, because
+      // the next safe_point_pos may be covered by cur. This may
+      // happen if cur has more than one interval, and the current
       // safe_point_pos is in between intervals.
       // For that reason, cur may be at most the last child.
       DCHECK_NOT_NULL(cur);
@@ -5485,16 +5506,18 @@ void ReferenceMapPopulator::PopulateReferenceMaps() {
         continue;
       }
 
-      // Check if the live range is spilled and the safe point is after
-      // the spill position.
+      // Check if the live range is spilled and the safe point is
+      // after the spill position.
       int spill_index = range->IsSpilledOnlyInDeferredBlocks(data()) ||
                                 range->LateSpillingSelected()
                             ? cur->Start().ToInstructionIndex()
                             : range->spill_start_index();
 
       if (!spill_operand.IsInvalid() && safe_point >= spill_index) {
-        TRACE("Pointer for range %d (spilled at %d) at safe point %d\n",
-              range->vreg(), spill_index, safe_point);
+        TRACE(
+            "Pointer for range %d (spilled at %d) at safe point "
+            "%d\n",
+            range->vreg(), spill_index, safe_point);
         map->RecordReference(AllocatedOperand::cast(spill_operand));
       }
 
@@ -5549,21 +5572,22 @@ void LiveRangeConnector::ResolveControlFlow(Zone* local_zone) {
           // We don't need to, if:
           // 1) there's no register use in this block, and
           // 2) the range ends before the block does, and
-          // 3) we don't have a successor, or the successor is spilled.
+          // 3) we don't have a successor, or the successor is
+          // spilled.
           LifetimePosition block_start =
               LifetimePosition::GapFromInstructionIndex(block->code_start());
           LifetimePosition block_end =
               LifetimePosition::GapFromInstructionIndex(block->code_end());
           const LiveRange* current = result.cur_cover_;
-          // Note that this is not the successor if we have control flow!
-          // However, in the following condition, we only refer to it if it
-          // begins in the current block, in which case we can safely declare it
-          // to be the successor.
+          // Note that this is not the successor if we have control
+          // flow! However, in the following condition, we only
+          // refer to it if it begins in the current block, in which
+          // case we can safely declare it to be the successor.
           const LiveRange* successor = current->next();
           if (current->End() < block_end &&
               (successor == nullptr || successor->spilled())) {
-            // verify point 1: no register use. We can go to the end of the
-            // range, since it's all within the block.
+            // verify point 1: no register use. We can go to the end
+            // of the range, since it's all within the block.
 
             bool uses_reg = false;
             for (const UsePosition* use = current->NextUsePosition(block_start);
@@ -5577,8 +5601,9 @@ void LiveRangeConnector::ResolveControlFlow(Zone* local_zone) {
           }
           if (current->TopLevel()->IsSpilledOnlyInDeferredBlocks(data()) &&
               pred_block->IsDeferred()) {
-            // The spill location should be defined in pred_block, so add
-            // pred_block to the list of blocks requiring a spill operand.
+            // The spill location should be defined in pred_block,
+            // so add pred_block to the list of blocks requiring a
+            // spill operand.
             TRACE("Adding B%d to list of spill blocks for %d\n",
                   pred_block->rpo_number().ToInt(),
                   current->TopLevel()->vreg());
@@ -5652,8 +5677,8 @@ void LiveRangeConnector::ConnectRanges(Zone* local_zone) {
     for (LiveRange* second_range = first_range->next(); second_range != nullptr;
          first_range = second_range, second_range = second_range->next()) {
       LifetimePosition pos = second_range->Start();
-      // Add gap move if the two live ranges touch and there is no block
-      // boundary.
+      // Add gap move if the two live ranges touch and there is no
+      // block boundary.
       if (second_range->spilled()) continue;
       if (first_range->End() != pos) continue;
       if (data()->IsBlockBoundary(pos) &&
@@ -5670,8 +5695,8 @@ void LiveRangeConnector::ConnectRanges(Zone* local_zone) {
           cur_operand.IsAnyRegister()) {
         const InstructionBlock* block = code()->GetInstructionBlock(gap_index);
         DCHECK(block->IsDeferred());
-        // Performing a reload in this block, meaning the spill operand must
-        // be defined here.
+        // Performing a reload in this block, meaning the spill
+        // operand must be defined here.
         top_range->GetListOfBlocksRequiringSpillOperands(data())->Add(
             block->rpo_number().ToInt());
       }
@@ -5686,8 +5711,8 @@ void LiveRangeConnector::ConnectRanges(Zone* local_zone) {
         }
         gap_pos = delay_insertion ? Instruction::END : Instruction::START;
       }
-      // Reloads or spills for spilled in deferred blocks ranges must happen
-      // only in deferred blocks.
+      // Reloads or spills for spilled in deferred blocks ranges
+      // must happen only in deferred blocks.
       DCHECK_IMPLIES(connect_spilled && !(prev_operand.IsAnyRegister() &&
                                           cur_operand.IsAnyRegister()),
                      code()->GetInstructionBlock(gap_index)->IsDeferred());
