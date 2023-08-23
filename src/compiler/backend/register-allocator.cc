@@ -3123,12 +3123,10 @@ void LinearScanAllocator::ReloadLiveRanges(
   for (RangeWithRegister range_with_register : to_be_live) {
     TopLevelLiveRange* range = range_with_register.range;
     int reg = range_with_register.expected_register;
-    // error code, we continue
-    if (reg != kUnassignedRegister && !check_allocate(range, reg)) {
-      reg = kUnassignedRegister;
-    }
 
     LiveRange* to_resurrect = range->GetChildCovers(position);
+    if (reg != kUnassignedRegister && !check_allocate(to_resurrect, reg))
+      continue;
     if (to_resurrect == nullptr) {
       // While the range was life until the end of the predecessor block, it is
       // not live in this block. Either there is a lifetime gap or the range
