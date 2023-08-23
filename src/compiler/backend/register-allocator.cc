@@ -3522,7 +3522,6 @@ void LinearScanAllocator::AllocateRegisters() {
   construct_sensitive_map();
 
 #ifdef DEBUG
-  /* code()->Print(); */
   print_pairs();
 #endif
 
@@ -3970,114 +3969,11 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
     case kMode_None:
       break;
   }
-#if false
-  Instruction* instr = instructions->InstructionAt(index);
-  AddressingMode mode = instr->addressing_mode();
-  if (sensitive_modes.count(mode) == 0) return;
-  if (instr->InputCount() >= 4) {
-    // branch instruction cmp rax, 16, branch 1, else 2
-    /* fprintf(stderr, "too many inputs in inst\n"); */
-    /* instr->Print(); */
-    /* fprintf(stderr, "Outputs:\n"); */
-    /* for (size_t i = 0; i < instr->OutputCount(); ++i) { */
-    /*   instr->OutputAt(i)->Print(); */
-    /* } */
-    /* fprintf(stderr, "Inputs:\n"); */
-    /* for (size_t i = 0; i < instr->InputCount(); ++i) { */
-    /*   instr->InputAt(i)->Print(); */
-    /* } */
-    return;
-    /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
-  }
-  /* InstructionOperand* output = instr->OutputCount() */
-  /*                                  ? instr->Output() */
-  /*                                  : instr->InputAt(instr->InputCount() - 1);
-   */
-  /* InstructionOperand* input1 = instr->InputAt(0); */
-  /* InstructionOperand* input2 = */
-  /*     instr->InputCount() > 1 ? instr->InputAt(1) : nullptr; */
-  /* ImmediateOperand* imm = nullptr; */
-  int32_t displacement = 0;
-  /* uint32_t output_reg, virtual_reg; */
-  /* uint32_t virtual_reg2; */
-
-  switch (mode) {
-    case kMode_M1I:
-    case kMode_M2I:
-    case kMode_M4I:
-    case kMode_M8I:
-      break;
-    // leal rax,[rbx - 0x3d] mod: 1, rm: rbx, reg: rax
-    case kMode_MRI: {
-      int v1, v2;
-      if (instr->InputCount() == 3) {
-        // movb [rax + 0xc3], -0x3d; mod: 1, rm: rax, reg: 0
-        // mov [rax + 0xc3], rbx
-        // input 2 is immediate but not register
-        if (instr->InputAt(2)->kind() != InstructionOperand::UNALLOCATED) break;
-        v1 = UnallocatedOperand::cast(instr->InputAt(2))->virtual_register();
-        v2 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
-        /* UNREACHABLE(); */
-      } else if (instr->InputCount() == 2) {
-        v1 = UnallocatedOperand::cast(instr->OutputAt(0))->virtual_register();
-        v2 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
-      } else {
-        UNREACHABLE();
-      }
-      assert(get_imm(instr->InputAt(1), displacement));
-      int mod = is_int8(displacement) ? 1 : 2;
-      add_mod_pairs(mod, v1, v2, index);
-      break;
-    }
-    case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
-    case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
-    case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
-    case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
-    {
-      // map sib
-      int v1, v2;
-      v1 = UnallocatedOperand::cast(instr->InputAt(0))->virtual_register();
-      v2 = UnallocatedOperand::cast(instr->InputAt(1))->virtual_register();
-      DEBUG_PRINT("here\n");
-      instr->Print();
-      add_sib_pairs(mode - kMode_MR1I, v1, v2, index);
-
-      // map modrm
-      int reg;
-      if (instr->InputCount() == 4) {
-        // movb [rax + rbx * 2 + 0xc3], 0
-        if (instr->InputAt(3)->kind() != InstructionOperand::UNALLOCATED) break;
-        // movb [rax + rbx * 2 + 0xc3], rax
-        reg = UnallocatedOperand::cast(instr->InputAt(3))->virtual_register();
-      } else if (instr->InputCount() == 3) {
-        reg = UnallocatedOperand::cast(instr->OutputAt(0))->virtual_register();
-      } else {
-        UNREACHABLE();
-      }
-      assert(get_imm(instr->InputAt(2), displacement));
-      int mod = is_int8(displacement) ? 1 : 2;
-      add_mod_registers(mod, reg, index);
-      break;
-    }
-    case kMode_None:
-    case kMode_M1:
-    case kMode_M2:
-    case kMode_M4:
-    case kMode_M8:
-    case kMode_MR:
-    case kMode_MR1:
-    case kMode_MR2:
-    case kMode_MR4:
-    case kMode_MR8:
-    case kMode_Root:
-      break;
-  }
-#endif
 }
 
 void LinearScanAllocator::construct_sensitive_map() {
   InstructionSequence* instructions = code();
-  for (int i = instructions->LastInstructionIndex() - 1; i >= 0; --i) {
+  for (int i = 0; i < instructions->LastInstructionIndex(); ++i) {
     add_sensitive_map(instructions, i);
   }
 }
@@ -4091,7 +3987,6 @@ uint8_t LinearScanAllocator::gen_sib(uint8_t scale, uint8_t index,
 }
 
 void LinearScanAllocator::print_pairs() {
-#ifdef DEBUG
   DEBUG_PRINT("print sib pairs\n");
   for (int i = 0; i < 4; ++i) {
     for (const auto& pairs : sib_pairs[i]) {
@@ -4110,101 +4005,7 @@ void LinearScanAllocator::print_pairs() {
       }
     }
   }
-#endif
 }
-
-/* void LinearScanAllocator::print_restricted_maps() { */
-/* #ifdef DEBUG */
-/*   // modrm */
-/*   for (int i = 0; i < 4; ++i) { */
-/*     for (auto reg : modrm_registers[i]) { */
-/*       DEBUG_PRINT("%d, v%d, 0b100\n", i, reg); */
-/*     } */
-/*   } */
-/**/
-/*   // op1 */
-/*   for (auto reg : sensitive_registers) { */
-/*     DEBUG_PRINT("1, v%d, *\n", reg); */
-/*   } */
-/* #endif */
-/* } */
-#if false
-void LinearScanAllocator::set_assigned_register(Instruction* instr,
-                                                InstructionOperand* op,
-                                                int phisical_reg) {
-  AddressingMode mode = instr->addressing_mode();
-  if (sensitive_modes.count(mode) == 0) return;
-  if (instr->InputCount() >= 4) {
-    return;
-    /* fprintf(stderr, "too many inputs in inst "); */
-    /* instr->Print(); */
-    /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
-  }
-  InstructionOperand* output = instr->OutputCount()
-                                   ? instr->Output()
-                                   : instr->InputAt(instr->InputCount() - 1);
-  InstructionOperand* input1 = instr->InputAt(0);
-  InstructionOperand* input2 =
-      instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
-  int32_t displacement = 0;
-  uint32_t output_reg, virtual_reg;
-  uint32_t virtual_reg2;
-
-  switch (mode) {
-    case kMode_M1I:
-    case kMode_M2I:
-    case kMode_M4I:
-    case kMode_M8I:
-      break;
-    case kMode_MRI:  // leal rax,[rbx - 0x3d]
-    {
-      if (!get_imm(input2, displacement)) break;
-      if (input1 == op) {
-        if (!get_virtual_reg(output, output_reg)) break;
-        add_p2v_register(phisical_reg, output_reg,
-                         is_int8(displacement) ? 1 : 2);
-      } else if (output == op) {
-        if (!get_virtual_reg(input1, virtual_reg)) break;
-        add_v2p_register(virtual_reg, phisical_reg,
-                         is_int8(displacement) ? 1 : 2);
-      }
-      break;
-    }
-    case kMode_MR1I:  // leal rbx, [rax + rbx - 0x3d]
-    case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
-    case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
-    case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
-    {
-      uint32_t scale = mode - kMode_MR1I;
-      if (input1 == op) {
-        if (!get_virtual_reg(input2, virtual_reg2)) break;
-        add_v2p_register(virtual_reg2, phisical_reg, scale);
-      } else if (input2 == op) {
-        if (!get_virtual_reg(input1, virtual_reg)) break;
-        add_p2v_register(phisical_reg, virtual_reg, scale);
-      }
-      // modrm应该在指令生成阶段就检查了
-      break;
-    }
-    case kMode_None:
-    case kMode_M1:
-    case kMode_M2:
-    case kMode_M4:
-    case kMode_M8:
-    case kMode_MR:
-    case kMode_MR1:
-    case kMode_MR2:
-    case kMode_MR4:
-    case kMode_MR8:
-    case kMode_Root:
-      break;
-  }
-
-#ifdef DEBUG
-  print_pairs();
-#endif  // DEBUG
-}
-#endif
 
 // TODO: 檢查得到的寄存器是否正確
 uint32_t LinearScanAllocator::get_v2p_regs(uint32_t vreg, int index) {
@@ -4432,16 +4233,6 @@ void LinearScanAllocator::add_mod_registers(int scale, LiveRange* vreg) {
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
-  // should remove in release
-  if (!check_allocate(range, reg)) {
-    fprintf(stderr, "unhandled branch!!\n");
-    code()->Print();
-    /* code()->print_restricted_maps(); */
-    assert(0 && "unhandled branch");
-  }
-
-  DEBUG_PRINT("assign %s to v%d:%d\n", RegisterName(reg),
-              range->TopLevel()->vreg(), range->relative_id());
   data()->MarkAllocated(range->representation(), reg);
   range->set_assigned_register(reg);
   range->SetUseHints(reg);
