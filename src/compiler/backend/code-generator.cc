@@ -353,12 +353,14 @@ void CodeGenerator::AssembleCode() {
       }
     }
 
+    tasm()->RecordComment("real instructions begin");
     if (FLAG_enable_embedded_constant_pool && !block->needs_frame()) {
       ConstantPoolUnavailableScope constant_pool_unavailable(tasm());
       result_ = AssembleBlock(block);
     } else {
       result_ = AssembleBlock(block);
     }
+    tasm()->RecordComment("real instructions end");
     if (result_ != kSuccess) return;
     unwinding_info_writer_.EndInstructionBlock(block);
   }
