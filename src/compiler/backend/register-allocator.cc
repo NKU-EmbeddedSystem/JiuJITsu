@@ -3121,12 +3121,10 @@ void LinearScanAllocator::ReloadLiveRanges(
   for (RangeWithRegister range_with_register : to_be_live) {
     TopLevelLiveRange* range = range_with_register.range;
     int reg = range_with_register.expected_register;
-    // error code, we continue
-    if (reg != kUnassignedRegister && !check_allocate(range, reg)) {
-      reg = kUnassignedRegister;
-    }
 
     LiveRange* to_resurrect = range->GetChildCovers(position);
+    if (reg != kUnassignedRegister && !check_allocate(to_resurrect, reg))
+      continue;
     if (to_resurrect == nullptr) {
       // While the range was life until the end of the predecessor block, it is
       // not live in this block. Either there is a lifetime gap or the range
@@ -3862,17 +3860,15 @@ bool LinearScanAllocator::get_imm(InstructionOperand* op, int32_t& imm) {
 void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
                                             int index) {
   Instruction* instr = instructions->InstructionAt(index);
+#ifdef DEBUG
+  instr->Print();
+#endif  // DEBUG
   AddressingMode mode = instr->addressing_mode();
   if (sensitive_modes.count(mode) == 0) return;
-  if (instr->InputCount() >= 4) {
-    return;
-    /* fprintf(stderr, "too many inputs in inst "); */
-    /* instr->Print(); */
-    /* assert(instr->InputCount() < 4 && "too many inputs in instr"); */
-  }
-  InstructionOperand* output = instr->OutputCount()
-                                   ? instr->Output()
-                                   : instr->InputAt(instr->InputCount() - 1);
+#ifdef DEBUG
+  DEBUG_PRINT("matched mode, we continue\n");
+#endif  // DEBUG
+  InstructionOperand* output = nullptr;
   InstructionOperand* input1 = instr->InputAt(0);
   InstructionOperand* input2 =
       instr->InputCount() > 1 ? instr->InputAt(1) : nullptr;
@@ -3889,6 +3885,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
       break;
     case kMode_MRI:  // leal rax,[rbx - 0x3d]
       if (!get_virtual_reg(input1, virtual_reg)) break;
+      output = instr->HasOutput() ? instr->Output() : instr->InputAt(2);
       if (!get_virtual_reg(output, output_reg)) break;
       if (!get_imm(input2, displacement)) break;
       // mod为disp的长度, reg和rm为output和input
@@ -3905,8 +3902,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
     case kMode_MR2I:  // leal rbx, [rax + rbx * 2 - 0x3d]
     case kMode_MR4I:  // leal rbx, [rax + rbx * 4 - 0x3d]
     case kMode_MR8I:  // leal rbx, [rax + rbx * 8 - 0x3d]
-      /* DEBUG_PRINT("HERE!!\n"); */
-      /* instr->Print(); */
+      output = instr->HasOutput() ? instr->Output() : instr->InputAt(3);
       if (!get_virtual_reg(input1, virtual_reg)) break;
       if (!get_virtual_reg(input2, virtual_reg2)) break;
       // map sib
@@ -3934,6 +3930,7 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
     case kMode_MR4:
     case kMode_MR8:
       // movb [rax + rbx * 2], 0xc3
+      output = instr->HasOutput() ? instr->Output() : instr->InputAt(2);
       if (output->kind() != InstructionOperand::IMMEDIATE) break;
       if (!get_virtual_reg(input1, virtual_reg)) break;
       if (!get_virtual_reg(input2, virtual_reg2)) break;
