@@ -3123,14 +3123,14 @@ void LinearScanAllocator::ReloadLiveRanges(
     int reg = range_with_register.expected_register;
 
     LiveRange* to_resurrect = range->GetChildCovers(position);
-    if (reg != kUnassignedRegister && !check_allocate(to_resurrect, reg))
-      continue;
     if (to_resurrect == nullptr) {
       // While the range was life until the end of the predecessor block, it is
       // not live in this block. Either there is a lifetime gap or the range
       // died.
       TRACE("No candidate for %d at %d\n", range->vreg(), position.value());
     } else {
+      if (reg != kUnassignedRegister && !check_allocate(to_resurrect, reg))
+        continue;
       // We might be resurrecting a range that we spilled until its next use
       // before. In such cases, we have to unsplit it before processing as
       // otherwise we might get register changes from one range to the other
