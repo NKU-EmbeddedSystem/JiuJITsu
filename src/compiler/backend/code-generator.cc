@@ -816,8 +816,16 @@ CodeGenerator::CodeGenResult CodeGenerator::AssembleInstruction(
     instr_starts_[instruction_index].arch_instr_pc_offset = tasm()->pc_offset();
   }
   // Assemble architecture-specific code for the instruction.
+  if (FLAG_code_comments) {
+    std::ostringstream buffer;
+    buffer << *instr << std::endl;
+    tasm()->RecordComment(buffer.str().c_str());
+    tasm()->RecordComment("real instructions begin");
+  }
+
   CodeGenResult result = AssembleArchInstruction(instr);
   if (result != kSuccess) return result;
+  if (FLAG_code_comments) tasm()->RecordComment("real instructions end");
 
   if (info()->trace_turbo_json()) {
     instr_starts_[instruction_index].condition_pc_offset = tasm()->pc_offset();
