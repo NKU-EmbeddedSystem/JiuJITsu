@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <utility>
+#include <vector>
 
 #include "src/base/bits.h"
 #include "src/base/compiler-specific.h"
@@ -1534,6 +1535,8 @@ class LinearScanAllocator final : public RegisterAllocator {
       modrm_pairsre[4];
   // 3-byte modrm sib
   std::unordered_map<int, std::vector<int>> modrm_registers[4];
+  std::unordered_map<int, std::vector<int>>
+      noreg_registers;  // not allowed to be r12
   /* std::unordered_multiset<uint32_t> self_pairs[4]; */
   /* std::unordered_multiset<uint32_t> modrm_registers[4]; */
   // scale or mod == 1 && isreg or isindex
@@ -1563,6 +1566,7 @@ class LinearScanAllocator final : public RegisterAllocator {
   void add_sib_pairs(int scale, int v1, int v2, int index);
   void add_mod_pairs(int scale, int v1, int v2, int index);
   void add_mod_registers(int scale, int vreg, int index);
+  void add_noreg_registers(int vreg, int index);
   /* void add_v2p_register(uint32_t vreg, uint32_t preg, uint32_t scale); */
   /* void add_p2v_register(uint32_t preg, uint32_t vreg, uint32_t scale); */
   /* void add_modrmpairs_register(uint32_t vreg, uint32_t scale); */

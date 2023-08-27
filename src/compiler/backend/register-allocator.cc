@@ -3886,6 +3886,10 @@ void LinearScanAllocator::add_sensitive_map(InstructionSequence* instructions,
     case kMode_MRI:  // leal rax,[rbx - 0x3d]
       if (!get_virtual_reg(input1, virtual_reg)) break;
       output = instr->HasOutput() ? instr->Output() : instr->InputAt(2);
+      if (output->kind() == InstructionOperand::Kind::IMMEDIATE) {
+        add_noreg_registers(virtual_reg, index);
+        break;
+      }
       if (!get_virtual_reg(output, output_reg)) break;
       if (!get_imm(input2, displacement)) break;
       // mod为disp的长度, reg和rm为output和input
@@ -4217,6 +4221,14 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
       return false;
     }
   }
+  if ((index & 7) == 0b100 && noreg_registers.count(vreg)) {
+    for (auto pos : noreg_registers[vreg]) {
+      LifetimePosition position =
+          LifetimePosition::InstructionFromInstructionIndex(pos);
+      if (position >= current->Start() && position <= tempend) return false;
+    }
+    return false;
+  }
 
   auto check =
       [&](std::unordered_map<uint32_t,
@@ -4298,6 +4310,10 @@ void LinearScanAllocator::add_mod_pairs(int scale, int v1, int v2, int index) {
 
 void LinearScanAllocator::add_mod_registers(int scale, int vreg, int index) {
   modrm_registers[scale][vreg].emplace_back(index);
+}
+
+void LinearScanAllocator::add_noreg_registers(int vreg, int index) {
+  noreg_registers[vreg].emplace_back(index);
 }
 
 /* void InstructionSequence::add_modrmsib_p2v_register(uint32_t preg, */
