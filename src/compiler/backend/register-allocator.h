@@ -1534,8 +1534,8 @@ class LinearScanAllocator final : public RegisterAllocator {
   std::unordered_map<uint32_t, std::vector<std::pair<uint32_t, uint32_t>>>
       modrm_pairsre[4];
   // 3-byte modrm sib
-  std::unordered_map<int, std::vector<int>> modrm_registers[4];
-  std::unordered_map<int, std::vector<int>>
+  std::unordered_map<uint32_t, std::vector<uint32_t>> modrm_registers[4];
+  std::unordered_map<uint32_t, std::vector<uint32_t>>
       noreg_registers;  // not allowed to be r12
   /* std::unordered_multiset<uint32_t> self_pairs[4]; */
   /* std::unordered_multiset<uint32_t> modrm_registers[4]; */

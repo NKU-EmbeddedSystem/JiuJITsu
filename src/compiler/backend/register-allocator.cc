@@ -4202,30 +4202,25 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
                                                LifetimePosition tempend) {
   uint32_t vreg = current->TopLevel()->vreg();
   uint32_t index = preg;
+  uint32_t start = current->Start().ToInstructionIndex();
+  uint32_t end = tempend.ToInstructionIndex();
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
   if ((index & 7) == 0b011) {
     if (sib_pairs[1].count(vreg)) {
       for (auto reg : sib_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= tempend) return false;
+        if (reg.first >= start && reg.first <= end) return false;
       }
     }
     if (modrm_pairs[1].count(vreg)) {
       for (auto reg : modrm_pairs[1][vreg]) {
-        LifetimePosition position =
-            LifetimePosition::InstructionFromInstructionIndex(reg.first);
-        if (position >= current->Start() && position <= tempend) return false;
+        if (reg.first >= start && reg.first <= end) return false;
       }
     }
   }
   if ((index & 7) == 0b100 && noreg_registers.count(vreg)) {
     for (auto pos : noreg_registers[vreg]) {
-      LifetimePosition position =
-          LifetimePosition::InstructionFromInstructionIndex(pos);
-      if (position >= current->Start() && position <= tempend) return false;
+      if (pos >= start && pos <= end) return false;
     }
-    return false;
   }
 
   auto check =
@@ -4236,9 +4231,8 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
         for (int i = 0; i < 4; ++i) {
           if (pairs[i].count(vreg) == 0) continue;
           for (const auto& reg : pairs[i][vreg]) {
-            LifetimePosition position =
-                LifetimePosition::InstructionFromInstructionIndex(reg.first);
-            if (position < current->Start() || position > tempend) continue;
+            uint32_t position = reg.first;
+            if (position < start || position > end) continue;
             if (reverse && reg.second == vreg) {
               uint8_t code = gen_sib(i, preg, preg);
               if (invalid_codes.count(code)) return false;
@@ -4274,13 +4268,12 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
   for (int i = 1; i <= 2; ++i) {
     if (modrm_registers[i].count(vreg) == 0) continue;
     for (auto location : modrm_registers[i][vreg]) {
-      LifetimePosition position =
-          LifetimePosition::InstructionFromInstructionIndex(location);
-      if (position < current->Start() || position > tempend) continue;
+      uint32_t position = location;
+      if (position < start || position > end) continue;
       uint8_t code = gen_sib(i, reg, rm);
       if (invalid_modrms.count(code) > 0) {
         DEBUG_PRINT("%d, %s gen invalid code %x at %d\n", i, RegisterName(reg),
-                    code, position.value());
+                    code, position);
         return false;
       }
       break;
@@ -4322,22 +4315,14 @@ void LinearScanAllocator::add_noreg_registers(int vreg, int index) {
 
 void LinearScanAllocator::SetLiveRangeAssignedRegister(LiveRange* range,
                                                        int reg) {
+#ifdef DEBUG
   // should remove in release
   if (!check_allocate(range, reg)) {
     code()->Print();
     /* code()->print_restricted_maps(); */
     assert(0 && "unhandled branch");
   }
-
-  /* UsePosition* register_use = range->first_pos(); */
-  /* while (register_use) { */
-  /*   int instr_index = register_use->pos().ToInstructionIndex(); */
-  /*   auto operand = register_use->operand(); */
-  /*   Instruction* instr = code()->InstructionAt(instr_index); */
-  /*   set_assigned_register(instr, operand, reg); */
-  /*   register_use = register_use->next(); */
-  /* } */
-  /**/
+#endif  // DEBUG
   DEBUG_PRINT("assign %s to v%d\n", RegisterName(reg),
               range->TopLevel()->vreg());
   data()->MarkAllocated(range->representation(), reg);
