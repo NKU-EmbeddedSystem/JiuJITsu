@@ -4222,7 +4222,7 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
     }
   }
   if ((index & 7) == 0b100 && noreg_registers.count(vreg)) {
-    auto positons = noreg_registers[vreg];
+    auto& positons = noreg_registers[vreg];
     auto it = std::lower_bound(positons.begin(), positons.end(), start);
     if (it != positons.end() && *it <= end) return false;
   }
@@ -4273,19 +4273,16 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
   uint32_t reg = preg;
   for (int i = 1; i <= 2; ++i) {
     if (modrm_registers[i].count(vreg) == 0) continue;
-    for (auto location : modrm_registers[i][vreg]) {
-      uint32_t position = location;
-      if (position < start || position > end) continue;
-      uint8_t code = gen_sib(i, reg, rm);
-      if (invalid_modrms.count(code) > 0) {
-        DEBUG_PRINT("%d, %s gen invalid code %x at %d\n", i, RegisterName(reg),
-                    code, position);
-        return false;
-      }
-      break;
+    auto& positions = modrm_registers[i][vreg];
+    auto it = std::lower_bound(positions.begin(), positions.end(), start);
+    if (it == positions.end() || *it > end) continue;
+    uint8_t code = gen_sib(i, reg, rm);
+    if (invalid_modrms.count(code) > 0) {
+      DEBUG_PRINT("%d, %s gen invalid code %x at %d\n", i, RegisterName(reg),
+                  code, *it);
+      return false;
     }
   }
-
   return true;
 }
 
