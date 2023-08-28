@@ -4207,20 +4207,24 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
   // index限制一下会好分配很多，因为如果index是0b011，不管base是什么都会是gadget
   if ((index & 7) == 0b011) {
     if (sib_pairs[1].count(vreg)) {
-      for (auto reg : sib_pairs[1][vreg]) {
-        if (reg.first >= start && reg.first <= end) return false;
-      }
+      auto& regs = sib_pairs[1][vreg];
+      auto it =
+          std::lower_bound(regs.begin(), regs.end(), std::make_pair(start, -1),
+                           [](auto a, auto b) { return a.first < b.first; });
+      if (it != regs.end() && it->first <= end) return false;
     }
     if (modrm_pairs[1].count(vreg)) {
-      for (auto reg : modrm_pairs[1][vreg]) {
-        if (reg.first >= start && reg.first <= end) return false;
-      }
+      auto& regs = modrm_pairs[1][vreg];
+      auto it =
+          std::lower_bound(regs.begin(), regs.end(), std::make_pair(start, -1),
+                           [](auto a, auto b) { return a.first < b.first; });
+      if (it != regs.end() && it->first <= end) return false;
     }
   }
   if ((index & 7) == 0b100 && noreg_registers.count(vreg)) {
-    for (auto pos : noreg_registers[vreg]) {
-      if (pos >= start && pos <= end) return false;
-    }
+    auto positons = noreg_registers[vreg];
+    auto it = std::lower_bound(positons.begin(), positons.end(), start);
+    if (it != positons.end() && *it <= end) return false;
   }
 
   auto check =
