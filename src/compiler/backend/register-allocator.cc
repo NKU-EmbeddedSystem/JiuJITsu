@@ -4210,7 +4210,6 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
             LifetimePosition::InstructionFromInstructionIndex(reg.first);
         if (position >= current->Start() && position <= tempend) return false;
       }
-      return false;
     }
     if (modrm_pairs[1].count(vreg)) {
       for (auto reg : modrm_pairs[1][vreg]) {
@@ -4218,7 +4217,6 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
             LifetimePosition::InstructionFromInstructionIndex(reg.first);
         if (position >= current->Start() && position <= tempend) return false;
       }
-      return false;
     }
   }
   if ((index & 7) == 0b100 && noreg_registers.count(vreg)) {
