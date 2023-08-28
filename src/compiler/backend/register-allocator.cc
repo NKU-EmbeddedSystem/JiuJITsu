@@ -4230,23 +4230,25 @@ bool LinearScanAllocator::check_allocate_until(LiveRange* current,
           const std::unordered_set<uint8_t>& invalid_codes, bool reverse) {
         for (int i = 0; i < 4; ++i) {
           if (pairs[i].count(vreg) == 0) continue;
-          for (const auto& reg : pairs[i][vreg]) {
-            uint32_t position = reg.first;
-            if (position < start || position > end) continue;
-            if (reverse && reg.second == vreg) {
+          auto& regs = pairs[i][vreg];
+          auto it = std::lower_bound(
+              regs.begin(), regs.end(), std::make_pair(start, -1),
+              [](auto a, auto b) { return a.first < b.first; });
+          for (; it != regs.end() && it->first <= end; ++it) {
+            if (reverse && it->second == vreg) {
               uint8_t code = gen_sib(i, preg, preg);
               if (invalid_codes.count(code)) return false;
               continue;
             }
             if (reverse) {
               uint32_t base = preg;
-              uint32_t index = get_v2p_regs(reg.second, reg.first);
+              uint32_t index = get_v2p_regs(it->second, it->first);
               if (index == kUnassignedRegister) continue;
               uint8_t code = gen_sib(i, index, base);
               if (invalid_codes.count(code)) return false;
             } else {
               uint32_t index = preg;
-              uint32_t base = get_v2p_regs(reg.second, reg.first);
+              uint32_t base = get_v2p_regs(it->second, it->first);
               if (base == kUnassignedRegister) continue;
               uint8_t code = gen_sib(i, index, base);
               if (invalid_codes.count(code)) return false;
